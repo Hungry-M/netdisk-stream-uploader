@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# 本地运行时产物
+*.db
+*.db-journal
+token.json
+credentials.json
+netdisk_temp/
+
+# 开发者本地备份
+*.backup
+*.py.backup
+*.py.txt
+
+# 本地测试残留
+test.txt
+test_data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
