@@ -108,6 +108,31 @@ def _verify_source(task: dict, db: TaskDB, task_id: str, verify: str) -> None:
     raise SystemExit(1)
 
 
+def _build_manifest(task_id: str, task: dict) -> dict:
+    """
+    构造归档内嵌的 manifest。
+
+    只含"任务创建时就确定"的字段：一旦掺进压缩结果（比如每卷 MD5），
+    重压就复现不出同样的字节流，续传校验会失效。
+    """
+    try:
+        files = json.loads(task.get('entries_json') or '[]')
+    except (TypeError, ValueError):
+        files = []
+
+    return {
+        "format": int(task.get('format_version') or 1),
+        "tool": "netdisk-stream-uploader",
+        "task_id": task_id,
+        "base_name": task['base_name'],
+        "remote_dir": task['remote_dir'],
+        "volume_size": task['volume_size_bytes'],
+        "created_at": task['created_at'],
+        "fixed_modified_at": task.get('fixed_modified_at'),
+        "files": files,
+    }
+
+
 def _check_volume_against_record(prev: Optional[dict], info: VolumeInfo) -> None:
     """
     把刚压出来的一卷与数据库记录比对。
@@ -166,6 +191,10 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
             logger.warning(f"记录分卷元数据失败（卷 {info.part_number}）: {e}")
 
     try:
+        manifest = None
+        if int(task.get('format_version') or 1) >= 2:
+            manifest = _build_manifest(task_id, task)
+
         vol_gen = compress_and_split(
             source_dir=task['source_dir'],
             file_list=task['file_list'],
@@ -173,6 +202,7 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
             resource_manager=rm,
             fixed_modified_at=_ts_to_dt(task['fixed_modified_at'] or task['created_at']),
             on_volume_complete=_record_volume,
+            manifest=manifest,
         )
         if backpressure == 0:
             bp = uploader.worker_count * 2
@@ -299,7 +329,7 @@ def upload(source, files, remote, name, volume_size, resume, ext, backpressure, 
                    volume_size, remote_suffix=ext,
                    fingerprint=fingerprint_of(entries),
                    entries_json=json.dumps(entries),
-                   format_version=1)
+                   format_version=2)
     task = db.get_task(task_id)
     _run_upload(task_id, task, db, backpressure=bp_limit, verify=verify)
 

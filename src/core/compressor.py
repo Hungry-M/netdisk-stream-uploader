@@ -8,11 +8,15 @@ from src.logger import get_logger
 from pathlib import Path
 from datetime import datetime
 from typing import List, Generator, BinaryIO, Optional, Iterator, Callable
-from stream_zip import stream_zip, ZIP_64
+from itertools import chain
+from stream_zip import stream_zip, ZIP_64, ZIP_32
 
 from src.hardware.resource_manager import ResourceManager
 
 logger = get_logger(__name__)
+
+# 归档自描述条目：放在 ZIP 的第一个条目，解开就知道这批分卷是什么。
+MANIFEST_NAME = '__streampack__.json'
 
 
 @dataclass(frozen=True)
@@ -138,9 +142,8 @@ def diff_entries(old: List[list], new: List[list]) -> dict:
 
 
 def _walk_files(root_dir: str, file_list: List[str],
-                fixed_modified_at: Optional[datetime] = None) -> Generator:
+                modified_at: datetime) -> Generator:
     """把 Entry 转成 stream-zip 需要的元组序列。"""
-    modified_at = fixed_modified_at or datetime.now()
     perms = 0o644
 
     def content_gen(path: Path):
@@ -155,6 +158,18 @@ def _walk_files(root_dir: str, file_list: List[str],
         yield entry.arcname, modified_at, perms, ZIP_64, content_gen(entry.path)
 
 
+def _manifest_entry(manifest: dict, modified_at: datetime) -> tuple:
+    """
+    把 manifest 变成一个 ZIP 条目。
+
+    sort_keys + 固定分隔符 → 同样的输入必得同样的字节，续传才能逐字节复现。
+    """
+    data = json.dumps(
+        manifest, sort_keys=True, ensure_ascii=False, separators=(',', ':')
+    ).encode('utf-8')
+    return MANIFEST_NAME, modified_at, 0o644, ZIP_32, (data,)
+
+
 def compress_and_split(
     source_dir: str,
     file_list: List[str],
@@ -162,12 +177,16 @@ def compress_and_split(
     resource_manager: ResourceManager,
     fixed_modified_at: Optional[datetime] = None,
     on_volume_complete: Optional[Callable[[VolumeInfo], None]] = None,
+    manifest: Optional[dict] = None,
 ) -> Generator[BinaryIO, None, None]:
     """
     流式压缩，切分为不超过 volume_size_bytes 的分卷。
 
     每卷写完、yield 之前，会以 VolumeInfo 回调一次（含 MD5、大小、起始偏移），
     调用方借此把元数据落库，供续传校验。
+
+    manifest 非空时会作为整个归档的**第一个条目**写入（`__streampack__.json`）。
+    是否传它取决于任务的 format_version：老任务不能中途加上，否则字节流全变。
 
     ⚠️ 每个分卷被 yield 后，调用方负责 close + remove。
     """
@@ -179,7 +198,11 @@ def compress_and_split(
     temp_dir = resource_manager.decide_volume_temp_dir()
     os.makedirs(temp_dir, exist_ok=True)
 
-    entries = _walk_files(source_dir, file_list, fixed_modified_at)
+    modified_at = fixed_modified_at or datetime.now()
+    entries = _walk_files(source_dir, file_list, modified_at)
+    if manifest is not None:
+        entries = chain([_manifest_entry(manifest, modified_at)], entries)
+
     zip_stream = stream_zip(entries)
 
     def _new_temp_file() -> BinaryIO:
