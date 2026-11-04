@@ -11,6 +11,8 @@ logger = get_logger(__name__)
 
 # 普通 API 基础地址（用于非上传操作）
 BAIDU_API_BASE = "https://pan.baidu.com/rest/2.0/pcs"
+# 文件管理类操作（list / filemanager）的地址，与上传用的 PCS 不同
+XPAN_API_BASE = "https://pan.baidu.com/rest/2.0/xpan"
 # 获取上传域名时的固定地址
 LOCATE_UPLOAD_URL = "https://d.pcs.baidu.com/rest/2.0/pcs/file"
 
@@ -49,11 +51,14 @@ class BaiduClient:
             resp.raw.decode_content = False
             resp.raise_for_status()
             json_data = resp.json()
-            if isinstance(json_data, dict) and json_data.get('error_code', 0) != 0:
-                error_msg = json_data.get('error_msg', '未知错误')
-                raise Exception(
-                    f"百度 API 错误 ({json_data.get('error_code')}): {error_msg}"
-                )
+            if isinstance(json_data, dict):
+                # PCS 用 error_code，xpan 用 errno，两种都要认
+                err = json_data.get('error_code', json_data.get('errno', 0)) or 0
+                if err != 0:
+                    error_msg = (json_data.get('error_msg')
+                                 or json_data.get('errmsg')
+                                 or '未知错误')
+                    raise Exception(f"百度 API 错误 ({err}): {error_msg}")
             return json_data
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 401:
@@ -177,21 +182,37 @@ class BaiduClient:
         return self._request('POST', url, params=params)
 
     # ---------- 其他操作 ----------
+    #
+    # 注意：这两个方法必须走 xpan 接口（/rest/2.0/xpan/file）。
+    # 老的 PCS 接口（/rest/2.0/pcs/file）只保留了上传相关 method，
+    # 用旧端点请求 list / delete 会直接返回 404。
 
-    def list_files(self, remote_dir: str) -> Dict:
-        url = f"{BAIDU_API_BASE}/file"
+    def list_files(self, remote_dir: str, limit: int = 1000) -> Dict:
+        url = f"{XPAN_API_BASE}/file"
         params = {
             'method': 'list',
             'dir': remote_dir,
-            'order': 'time',
-            'desc': '1',
+            'order': 'name',
+            'start': 0,
+            'limit': limit,
         }
         return self._request('GET', url, params=params)
 
     def delete_file(self, remote_path: str) -> Dict:
-        url = f"{BAIDU_API_BASE}/file"
+        url = f"{XPAN_API_BASE}/file"
         params = {
-            'method': 'delete',
-            'path': remote_path,
+            'method': 'filemanager',
+            'opera': 'delete',
+            'async': '0',
         }
-        return self._request('POST', url, params=params)
+        # 注意：filelist 必须放在 POST 请求体里。放在 query 里接口只回 errno 2。
+        data = {'filelist': json.dumps([remote_path], ensure_ascii=False)}
+        result = self._request('POST', url, params=params, data=data)
+
+        failed = [i for i in (result.get('info') or []) if i.get('errno')]
+        if failed:
+            item = failed[0]
+            raise Exception(
+                f"删除失败: {item.get('path')} (errno {item.get('errno')})"
+            )
+        return result
