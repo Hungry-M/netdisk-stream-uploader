@@ -66,6 +66,9 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
         )
         if backpressure == 0:
             bp = uploader.worker_count * 2
+        elif backpressure is None:
+            # 命令行没指定时，回落到配置文件里的默认值
+            bp = settings.max_pending_volumes
         else:
             bp = backpressure
 
