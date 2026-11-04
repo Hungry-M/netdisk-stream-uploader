@@ -170,6 +170,43 @@ def _manifest_entry(manifest: dict, modified_at: datetime) -> tuple:
     return MANIFEST_NAME, modified_at, 0o644, ZIP_32, (data,)
 
 
+def _deterministic_crypto_random(task_id: str):
+    """
+    给 stream-zip 的加密用的"随机"字节源。
+
+    stream-zip 默认用 secrets.token_bytes 生成每条目的盐，这会让同样输入
+    每次压出不同字节，续传校验必然失败。这里改成由 task_id + 调用序号派生，
+    保证同一任务重压时盐一致。
+
+    调用顺序与条目顺序绑定，因此必须保证条目枚举是确定性的（由
+    iter_entries 保证）。
+    """
+    state = {"n": 0}
+
+    def getter(num_bytes: int) -> bytes:
+        seed = f"streampack:{task_id}:{state['n']}".encode('utf-8')
+        state["n"] += 1
+        out = bytearray()
+        block = 0
+        while len(out) < num_bytes:
+            out += hashlib.sha256(seed + block.to_bytes(4, 'big')).digest()
+            block += 1
+        return bytes(out[:num_bytes])
+
+    return getter
+
+
+def password_tag(task_id: str, password: str) -> str:
+    """
+    密码校验值：只用于确认"续传时输入的密码和创建时一致"，本身不能还原密码。
+
+    用 PBKDF2 而不是裸 SHA-256，是为了让拿到 tasks.db 的人也没法快速穷举。
+    """
+    return hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), task_id.encode("utf-8"), 100_000
+    ).hex()
+
+
 def compress_and_split(
     source_dir: str,
     file_list: List[str],
@@ -178,6 +215,8 @@ def compress_and_split(
     fixed_modified_at: Optional[datetime] = None,
     on_volume_complete: Optional[Callable[[VolumeInfo], None]] = None,
     manifest: Optional[dict] = None,
+    password: Optional[str] = None,
+    task_id: Optional[str] = None,
 ) -> Generator[BinaryIO, None, None]:
     """
     流式压缩，切分为不超过 volume_size_bytes 的分卷。
@@ -203,7 +242,17 @@ def compress_and_split(
     if manifest is not None:
         entries = chain([_manifest_entry(manifest, modified_at)], entries)
 
-    zip_stream = stream_zip(entries)
+    if password is not None:
+        if not task_id:
+            raise ValueError("加密归档必须提供 task_id（盐由它派生）")
+        logger.info("[ZIP] 启用 AES-256 加密")
+        zip_stream = stream_zip(
+            entries,
+            password=password,
+            get_crypto_random=_deterministic_crypto_random(task_id),
+        )
+    else:
+        zip_stream = stream_zip(entries)
 
     def _new_temp_file() -> BinaryIO:
         return tempfile.NamedTemporaryFile(

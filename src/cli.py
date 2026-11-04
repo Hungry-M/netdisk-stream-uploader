@@ -17,7 +17,7 @@ from src.config.user_config import (
 from src.hardware.resource_manager import ResourceManager
 from src.core.compressor import (
     compress_and_split, entries_payload, fingerprint_of, diff_entries,
-    VolumeInfo, VolumeMismatchError,
+    password_tag, VolumeInfo, VolumeMismatchError,
 )
 from src.core.uploader import VolumeUploader, UploadResult
 from src.baidu.client import BaiduClient
@@ -156,9 +156,38 @@ def _check_volume_against_record(prev: Optional[dict], info: VolumeInfo) -> None
         )
 
 
+PASSWORD_ENV = "STREAMPACK_PASSWORD"
+
+
+def _resolve_password(task: dict, provided: Optional[str], task_id: str) -> Optional[str]:
+    """
+    确定本次压缩要用的密码。
+
+    加密任务在续传时必须拿到同一个密码：命令行参数 > 环境变量 > 交互输入。
+    拿到后先核对密码校验值，避免"密码错了但先压了半小时才发现"。
+    """
+    encrypted = bool(task.get('encrypted'))
+    pwd = provided or os.environ.get(PASSWORD_ENV)
+
+    if not encrypted:
+        if pwd:
+            click.echo("[WARN] 该任务创建时未加密，已忽略密码参数", err=True)
+        return None
+
+    if not pwd:
+        pwd = click.prompt("压缩包密码", hide_input=True)
+
+    expected = task.get('password_tag')
+    if expected and password_tag(task_id, pwd) != expected:
+        click.echo("[ERR] 密码与任务创建时不一致。", err=True)
+        raise SystemExit(1)
+    return pwd
+
+
 def _run_upload(task_id: str, task: dict, db: TaskDB,
                 backpressure: Optional[int] = None,
-                verify: str = 'full') -> None:
+                verify: str = 'full',
+                password: Optional[str] = None) -> None:
     settings = build_settings()
     rm = ResourceManager(settings)
 
@@ -168,6 +197,7 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
         click.echo(f"[CLEAN] 清理了 {cleaned} 个残留分卷")
 
     _verify_source(task, db, task_id, verify)
+    pwd = _resolve_password(task, password, task_id)
 
     baidu_client = get_client()
     uploader = VolumeUploader(baidu_client, rm, db=db, task_id=task_id)
@@ -207,6 +237,8 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
             fixed_modified_at=_ts_to_dt(task['fixed_modified_at'] or task['created_at']),
             on_volume_complete=_record_volume,
             manifest=manifest,
+            password=pwd,
+            task_id=task_id,
         )
         if backpressure == 0:
             bp = uploader.worker_count * 2
@@ -299,7 +331,10 @@ def cli():
 @click.option('--verify', type=click.Choice(VERIFY_CHOICES), default='full',
               show_default=True,
               help='续传前校验：full=指纹+逐卷 MD5，stat=只比指纹，off=不校验')
-def upload(source, files, remote, name, volume_size, resume, ext, backpressure, verify):
+@click.option('--password', default=None,
+              help='用 AES-256 加密归档。建议改用环境变量 STREAMPACK_PASSWORD，避免留在命令历史里')
+def upload(source, files, remote, name, volume_size, resume, ext, backpressure,
+           verify, password):
     """创建并执行上传任务。若任务已存在，将续传/重跑。"""
     file_list = [f.strip() for f in files.split(',')]
     source_dir = Path(source).resolve()
@@ -317,6 +352,8 @@ def upload(source, files, remote, name, volume_size, resume, ext, backpressure, 
     else:
         bp_limit = int(backpressure)
 
+    pwd = password or os.environ.get(PASSWORD_ENV)
+
     db = TaskDB()
     existing = db.get_task(task_id)
     if existing:
@@ -325,7 +362,8 @@ def upload(source, files, remote, name, volume_size, resume, ext, backpressure, 
             click.echo(f"任务 {task_id} 已完成。如需重做请先 delete。")
             return
         click.echo(f"发现任务 {task_id}（{status}），将续传/重跑")
-        _run_upload(task_id, existing, db, backpressure=bp_limit, verify=verify)
+        _run_upload(task_id, existing, db, backpressure=bp_limit,
+                    verify=verify, password=password)
         return
 
     entries = entries_payload(str(source_dir), file_list)
@@ -333,9 +371,12 @@ def upload(source, files, remote, name, volume_size, resume, ext, backpressure, 
                    volume_size, remote_suffix=ext,
                    fingerprint=fingerprint_of(entries),
                    entries_json=json.dumps(entries),
-                   format_version=2)
+                   format_version=2,
+                   encrypted=bool(pwd),
+                   password_tag=password_tag(task_id, pwd) if pwd else None)
     task = db.get_task(task_id)
-    _run_upload(task_id, task, db, backpressure=bp_limit, verify=verify)
+    _run_upload(task_id, task, db, backpressure=bp_limit,
+                verify=verify, password=password)
 
 
 @cli.command()
@@ -343,7 +384,9 @@ def upload(source, files, remote, name, volume_size, resume, ext, backpressure, 
 @click.option('--verify', type=click.Choice(VERIFY_CHOICES), default='full',
               show_default=True,
               help='续传前校验：full=指纹+逐卷 MD5，stat=只比指纹，off=不校验')
-def resume(task_id, verify):
+@click.option('--password', default=None,
+              help='加密任务的密码（也可用环境变量 STREAMPACK_PASSWORD；缺省时交互输入）')
+def resume(task_id, verify, password):
     """恢复中断的上传任务"""
     db = TaskDB()
     task = db.get_task(task_id)
@@ -355,7 +398,7 @@ def resume(task_id, verify):
         return
     click.echo(f"已上传分卷: {db.get_completed_part_numbers(task_id)}")
     click.echo(f"待重试分卷: {db.get_failed_part_numbers(task_id)}")
-    _run_upload(task_id, task, db, backpressure=None, verify=verify)
+    _run_upload(task_id, task, db, backpressure=None, verify=verify, password=password)
 
 
 @cli.command(name='list')

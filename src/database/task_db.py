@@ -89,6 +89,8 @@ class TaskDB:
                 ('fingerprint', 'TEXT'),        # 源文件清单指纹
                 ('entries_json', 'TEXT'),       # 清单原文，用于续传时列出差异
                 ('format_version', 'INTEGER'),  # 1 = 无 manifest，2 = 有
+                ('encrypted', 'INTEGER'),       # 1 = 归档用 AES 加密
+                ('password_tag', 'TEXT'),       # 密码校验值，不含密码本身
             ],
             'volumes': [
                 ('size_bytes', 'INTEGER'),      # 该卷字节数
@@ -109,7 +111,9 @@ class TaskDB:
                     remote_suffix: str = ".zip",
                     fingerprint: Optional[str] = None,
                     entries_json: Optional[str] = None,
-                    format_version: int = 1) -> None:
+                    format_version: int = 1,
+                    encrypted: bool = False,
+                    password_tag: Optional[str] = None) -> None:
         now = time.time()
         with self._write_lock:
             with self._connect() as conn:
@@ -118,13 +122,15 @@ class TaskDB:
                     (task_id, source_dir, file_list_json, remote_dir, base_name,
                      volume_size_bytes, remote_suffix, status,
                      created_at, updated_at, fixed_modified_at,
-                     fingerprint, entries_json, format_version)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     fingerprint, entries_json, format_version,
+                     encrypted, password_tag)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     task_id, source_dir, json.dumps(file_list),
                     remote_dir, base_name, volume_size_bytes, remote_suffix,
                     TaskStatus.PENDING.value, now, now, now,
-                    fingerprint, entries_json, format_version
+                    fingerprint, entries_json, format_version,
+                    1 if encrypted else 0, password_tag
                 ))
 
     def update_task_fingerprint(self, task_id: str, fingerprint: str,
