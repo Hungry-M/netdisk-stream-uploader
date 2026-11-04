@@ -41,6 +41,7 @@ Peak local disk usage is approximately the size of a single volume (1 GB by defa
 - Resource-aware scheduling, choosing temp directories by free space and enforcing a minimum free-disk threshold
 - Orphan cleanup, removing leftover temp files from crashed sessions on the next start
 - Custom output extension, the archive is always ZIP but can be named `.zi123p` or similar
+- Optional AES-256 encryption (WinZip AES); the password is never stored, not even in the archive metadata
 - OAuth 2.0 (Authorization Code, OOB), no cookie hacks and no password exposure
 
 ## Installation
@@ -88,6 +89,10 @@ python main.py upload -s /data -f "." -r /apps/StreamPack -n backup --backpressu
 
 # Custom output extension
 python main.py upload -s /data -f "." -r /apps/StreamPack -n backup --ext .zi123p
+
+# Encrypted archive (prefer the environment variable over the command line)
+export STREAMPACK_PASSWORD='your-pass'
+python main.py upload -s /data -f "." -r /apps/StreamPack -n backup --password "$STREAMPACK_PASSWORD"
 ```
 
 ### Resume an interrupted task
@@ -228,6 +233,12 @@ copy /b arch.part0001.zip+arch.part0002.zip+arch.part0003.zip arch.zip
 
 The result opens directly. Its first entry is `__streampack__.json`, recording the task parameters and the full file list, so you can tell where the volumes came from.
 
+**How do I open an encrypted archive**
+
+Use a tool that supports WinZip AES — 7-Zip, WinRAR, Keka. **Windows Explorer's built-in ZIP support does not handle AES**; a "cannot open" error there does not mean the archive is corrupt.
+
+The password is stored nowhere (the database only keeps a PBKDF2 verifier for comparison), so losing it is unrecoverable. To resume an encrypted task you must supply the same password — `--password` or `STREAMPACK_PASSWORD`. Without it you are prompted; with a wrong one the resume is rejected immediately instead of wasting a full compression pass.
+
 ## Requirements
 
 - Python 3.10+
@@ -238,10 +249,13 @@ The result opens directly. Its first entry is `__streampack__.json`, recording t
 - [x] User config file and `config` command
 - [x] MD5 checksums for volumes, verified per volume on resume
 - [x] `__streampack__.json` manifest embedded in the archive
+- [x] AES-256 encrypted archives
 - [ ] Graphical interface (PySide6)
 - [ ] Multi-language support (gettext)
 - [ ] Additional netdisk providers (via a `StorageProvider` interface)
-- [ ] Additional formats (RAR, 7z, encryption)
+- [ ] 7z — needs a randomly-addressable container, which conflicts with streaming; deferred
+
+> RAR is out of scope: the compression algorithm is proprietary, the vendor only open-sources extraction and forbids using it to create archives, and no Python writer exists.
 
 ## License
 

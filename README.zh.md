@@ -41,6 +41,7 @@
 - 资源感知调度，按剩余空间选择临时目录，并强制最低磁盘空间下限
 - 孤儿分卷清理，异常退出后遗留的临时文件下次启动时自动清理
 - 自定义扩展名，内容始终是 ZIP，但可以命名为 `.zi123p` 等
+- 可选 AES-256 加密（WinZip AES），密码不落盘、不进归档元数据
 - OAuth 2.0 授权码模式（OOB），不依赖 Cookie，不暴露密码
 
 ## 安装
@@ -88,6 +89,10 @@ python main.py upload -s /data -f "." -r /apps/StreamPack -n backup --backpressu
 
 # 自定义输出扩展名
 python main.py upload -s /data -f "." -r /apps/StreamPack -n backup --ext .zi123p
+
+# 加密归档（建议用环境变量传密码，避免留在命令历史里）
+export STREAMPACK_PASSWORD='your-pass'
+python main.py upload -s /data -f "." -r /apps/StreamPack -n backup --password "$STREAMPACK_PASSWORD"
 ```
 
 ### 断点续传
@@ -228,6 +233,12 @@ cat arch.part*.zip > arch.zip
 
 还原后直接解压即可。第一个条目是 `__streampack__.json`，记录了任务参数和完整文件清单，可以据此确认这批分卷是从哪来的。
 
+**加密归档怎么打开**
+
+用支持 WinZip AES 的工具：7-Zip、WinRAR、Keka 都可以。**Windows 资源管理器自带的 zip 不支持 AES**，双击会报错，不是文件坏了。
+
+密码不会保存在任何地方（数据库里只有用于比对的 PBKDF2 校验值），丢了无法恢复。续传加密任务时必须提供同一个密码：`--password` 或环境变量 `STREAMPACK_PASSWORD`；没给会交互提示，密码不对会直接拒绝而不是白跑一遍。
+
 ## 环境要求
 
 - Python 3.10+
@@ -238,10 +249,13 @@ cat arch.part*.zip > arch.zip
 - [x] 用户配置文件与 `config` 命令
 - [x] 分卷 MD5 落库，续传时逐卷校验
 - [x] 归档内置 `__streampack__.json` 清单
+- [x] AES-256 加密归档
 - [ ] 图形界面（PySide6）
 - [ ] 多语言支持（gettext）
 - [ ] 更多网盘后端（通过 `StorageProvider` 接口）
-- [ ] 更多格式（RAR、7z、加密）
+- [ ] 7z —— 需要能随机访问的容器，与流式生成冲突，暂缓
+
+> RAR 不在计划内：压缩算法专有，官方只开源解压、禁止用于生成，Python 侧没有可用的写入实现。
 
 ## 许可证
 
