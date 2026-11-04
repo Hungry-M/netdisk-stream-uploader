@@ -4,6 +4,8 @@
 >
 > [English](README.md)
 
+`netdisk-stream-uploader` 是项目名（仓库名 / PyPI 包名），`StreamPack` 是产品名，同时也是百度开放平台里的应用名 —— 上传路径因此固定为 `/apps/StreamPack`。
+
 将多个文件或文件夹压缩为一个 ZIP 分卷包，边压缩边上传至百度网盘，全程无需在本地保存完整压缩包。
 
 ## 背景

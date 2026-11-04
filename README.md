@@ -4,6 +4,8 @@
 >
 > [中文文档](README.zh.md)
 
+`netdisk-stream-uploader` is the project name (repository / PyPI package); `StreamPack` is the product name — and the application name registered on the Baidu Open Platform, which is why the upload path is fixed to `/apps/StreamPack`.
+
 Compress multiple files and folders into a ZIP archive, split it into volumes, and upload each volume to Baidu Netdisk as it is produced — without ever storing the whole archive in memory or on disk.
 
 ## Background
