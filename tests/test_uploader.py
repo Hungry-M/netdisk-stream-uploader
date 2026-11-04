@@ -32,10 +32,12 @@ def test_skips_completed_volume(tmp_path):
     uploader = _make_uploader(tmp_path, db, "t1", fake_client)
 
     vol = _fake_vol(tmp_path, "v1.zip")
-    pn, ok, err = uploader.upload_volume(vol, "/apps", "arch", 1)
+    pn, ok, err, skipped = uploader.upload_volume(vol, "/apps", "arch", 1)
 
     assert ok is True
     assert pn == 1
+    assert err is None
+    assert skipped is True          # 命中的是"已完成、跳过"分支
     fake_client.upload_file.assert_not_called()
 
 
@@ -63,9 +65,10 @@ def test_partial_failure_does_not_cancel(tmp_path):
         for v in vols:
             yield v
 
-    result, uploaded, failed = uploader.upload_all(vol_gen(), "/apps", "arch", "t2")
+    result, uploaded, failed, skipped = uploader.upload_all(vol_gen(), "/apps", "arch", "t2")
 
     assert result == UploadResult.PARTIAL
     assert len(uploaded) == 2
     assert len(failed) == 1
+    assert skipped == []           # 本次无分卷命中"已完成"分支
     assert call_count["n"] == 3  # 三次都被调用（没被取消）
