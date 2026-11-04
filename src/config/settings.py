@@ -50,6 +50,14 @@ class ResourceSettings:
     # 无论是否启用背压，这个安全阀始终生效。
     min_free_disk_bytes: int = 2 * 1024 * 1024 * 1024  # 2GB
 
+    # ----- 上传重试配置 -----
+    # 单个分卷的最大尝试次数（含首次）。1 表示不重试。
+    max_upload_retries: int = 3
+
+    # 首次重试前的等待秒数，之后按 2 的幂递增（2s、4s、8s……）。
+    # 设为 0 则立即重试，测试里常用。
+    retry_backoff_seconds: float = 2.0
+
     # ----- 通用配置 -----
     # 临时文件前缀（便于识别和清理）
     temp_file_prefix: str = "netdisk_upload_"

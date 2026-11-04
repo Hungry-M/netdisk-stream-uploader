@@ -1,11 +1,12 @@
 # src/core/uploader.py
 import os
 import sys
-from src.logger import get_logger
+import time
 from enum import Enum
 from typing import BinaryIO, Generator, List, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed, wait, FIRST_COMPLETED
 
+from src.logger import get_logger
 from src.baidu.client import BaiduClient
 from src.hardware.resource_manager import ResourceManager
 from src.database.task_db import TaskDB
@@ -51,6 +52,42 @@ class VolumeUploader:
         except OSError as e:
             logger.warning(f"删除临时文件失败: {file_path}, {e}")
 
+    def _upload_with_retry(self, remote_path: str, volume_file: BinaryIO,
+                           part_number: int) -> None:
+        """
+        上传单个分卷，失败按指数退避重试。
+
+        网络抖动、限流这类瞬时错误占失败的大多数，重试一次往往就能过去；
+        每次重试前必须 seek(0)，否则 requests 会从上次读到的位置继续。
+        全部尝试仍失败时抛出最后一次异常，由调用方记录为 failed。
+        """
+        settings = self.resource_manager.settings
+        attempts = max(1, int(settings.max_upload_retries))
+        backoff = max(0.0, float(settings.retry_backoff_seconds))
+
+        last_error: Optional[Exception] = None
+        for attempt in range(1, attempts + 1):
+            try:
+                volume_file.seek(0)
+                self.client.upload_file(remote_path, volume_file)
+                if attempt > 1:
+                    logger.info(f"[OK]   分卷 {part_number} 第 {attempt} 次尝试成功")
+                return
+            except Exception as e:
+                last_error = e
+                if attempt >= attempts:
+                    break
+                delay = backoff * (2 ** (attempt - 1))
+                logger.warning(
+                    f"[RETRY] 分卷 {part_number} 第 {attempt}/{attempts} 次失败: {e}；"
+                    f"{delay:.1f}s 后重试"
+                )
+                if delay > 0:
+                    time.sleep(delay)
+
+        assert last_error is not None
+        raise last_error
+
     def upload_volume(self, volume_file: BinaryIO, remote_dir: str,
                       base_name: str, part_number: int
                       ) -> Tuple[int, bool, Optional[str], bool]:
@@ -70,11 +107,10 @@ class VolumeUploader:
             self.db.update_volume_status(self.task_id, part_number, 'uploading')
 
         try:
-            volume_file.seek(0)
             size_mb = os.path.getsize(file_path) / 1024 / 1024
             logger.info(f"[UP]   分卷 {part_number} 上传中 (大小: {size_mb:.2f} MB)")
 
-            self.client.upload_file(remote_path, volume_file)
+            self._upload_with_retry(remote_path, volume_file, part_number)
 
             if self.db and self.task_id:
                 self.db.update_volume_status(self.task_id, part_number, 'done')
