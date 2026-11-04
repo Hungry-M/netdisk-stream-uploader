@@ -31,6 +31,7 @@ Peak local disk usage is approximately the size of a single volume (1 GB by defa
 - Streaming compression, powered by [`stream-zip`](https://pypi.org/project/stream-zip/)
 - Volume-based upload, each volume well under the Baidu API single-file limit
 - Resumable uploads, with SQLite task tracking and automatic skipping of completed volumes
+- Automatic retries with exponential backoff (3 attempts by default)
 - Concurrent uploads, with a configurable worker count
 - Backpressure control, an optional cap on in-flight volumes
 - Resource-aware scheduling, choosing temp directories by free space and enforcing a minimum free-disk threshold
@@ -101,11 +102,28 @@ python main.py resume <task_id>
 python main.py upload -s /data -f "a.mp4,b.mp4" -r /apps/StreamPack -n backup
 ```
 
+If the process is killed (window closed, power loss), the task stays in `running`. The next command of any kind resets it to `interrupted` and prints how many tasks were reset; `resume` continues from there.
+
 ### Delete task records
 
 ```bash
 python main.py delete <task_id> --yes
 ```
+
+Only local records are deleted; uploaded files are untouched.
+
+### Global options
+
+These apply to every subcommand and go before it:
+
+```bash
+python main.py --debug list              # DEBUG-level logging
+python main.py --quiet list              # WARNING and above only
+python main.py --log-file run.log list   # also write to a log file
+python main.py --gui                     # graphical interface (not implemented)
+```
+
+`--debug` takes precedence over `--quiet`.
 
 ## How it works
 
@@ -118,18 +136,48 @@ python main.py delete <task_id> --yes
 
 Each volume is deleted after a successful upload. Task state (which volumes succeeded) is stored in SQLite at `~/.netdisk_uploader/tasks.db`.
 
+A failed volume is retried with exponential backoff: 3 attempts by default, waiting 2s then 4s. Only after all attempts fail is the volume marked `failed`; the remaining volumes continue normally.
+
 ## Configuration
 
 Currently edited in `src/config/settings.py`. Key options:
 
-| Option                 | Default                                                 | Meaning                                   |
-| :--------------------- | :------------------------------------------------------ | :---------------------------------------- |
-| `preferred_temp_dirs`  | `D:/netdisk_temp`, `E:/netdisk_temp`, `C:/netdisk_temp` | Where volumes are stored during upload    |
-| `min_free_disk_bytes`  | 2 GB                                                    | Refuse to use a disk with less free space |
-| `max_parallel_workers` | 0 (= CPU cores − 1)                                     | Concurrent uploads                        |
-| `max_pending_volumes`  | None                                                    | Backpressure cap (None = disabled)        |
+| Option | Default | Meaning |
+|:---|:---|:---|
+| `preferred_temp_dirs` | `D:/netdisk_temp`, `E:/netdisk_temp`, `C:/netdisk_temp` | Where volumes are stored during upload |
+| `min_free_disk_bytes` | 2 GB | Refuse to use a disk with less free space |
+| `max_parallel_workers` | 0 (= CPU cores − 1) | Concurrent uploads |
+| `max_pending_volumes` | None | Backpressure cap (None = disabled; the CLI flag wins) |
+| `max_upload_retries` | 3 | Max attempts per volume, including the first |
+| `retry_backoff_seconds` | 2.0 | Delay before the first retry; doubles each time |
 
 A user config file is on the roadmap.
+
+## FAQ
+
+**`invalid_client` during authorization**
+
+Almost always a mangled SecretKey. The common cause is an invisible control character pasted in from the web console (e.g. `\u0016`), or a stray space or newline. Copy it again from the console; the stored string is visible in `token.json`.
+
+**Upload returns 404 or 403**
+
+The target directory does not exist or is not writable. The current console no longer has a separate "app directory" field: writable paths are fixed to `/apps/{app name}`, and the **app name must be ASCII** — a Chinese name breaks the path. Confirm with `--remote /apps/<your-app-name>` first.
+
+**`invalid_grant` when exchanging the code**
+
+Authorization codes are single-use and expire in about 10 minutes. Reopen the authorization URL and get a fresh one.
+
+**Do I need to re-authorize often**
+
+Normally no. The access token expires in about 30 days and is refreshed automatically with the refresh token; you are only asked to authorize again when the refresh itself fails.
+
+**How much local disk do I need**
+
+Roughly `volume size × (1 + in-flight volumes)`. Backpressure is off by default, so the peak can approach the whole archive; use `--backpressure` to keep it tight.
+
+**Can I interrupt it**
+
+Yes. Ctrl+C stops scheduling further volumes and removes the ones not yet uploaded; completed volumes stay recorded, and `resume` continues from there.
 
 ## Requirements
 
