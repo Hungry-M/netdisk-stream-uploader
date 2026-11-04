@@ -76,12 +76,38 @@ class TaskDB:
                 CREATE INDEX IF NOT EXISTS idx_volumes_status ON volumes(status);
                 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
             """)
+            self._migrate(conn)
+
+    @staticmethod
+    def _migrate(conn) -> None:
+        """
+        给老库补列。CREATE TABLE IF NOT EXISTS 不会改动已存在的表，
+        所以新增字段必须显式 ALTER。
+        """
+        wanted = {
+            'tasks': [
+                ('fingerprint', 'TEXT'),        # 源文件清单指纹
+                ('format_version', 'INTEGER'),  # 1 = 无 manifest，2 = 有
+            ],
+            'volumes': [
+                ('size_bytes', 'INTEGER'),      # 该卷字节数
+                ('start_offset', 'INTEGER'),    # 该卷在整条流中的起始偏移
+            ],
+        }
+        for table, columns in wanted.items():
+            existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+            for name, decl in columns:
+                if name not in existing:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+                    logger.debug(f"迁移：{table} 新增列 {name} {decl}")
 
     # ---------- 任务操作 ----------
 
     def create_task(self, task_id: str, source_dir: str, file_list: List[str],
                     remote_dir: str, base_name: str, volume_size_bytes: int,
-                    remote_suffix: str = ".zip") -> None:
+                    remote_suffix: str = ".zip",
+                    fingerprint: Optional[str] = None,
+                    format_version: int = 1) -> None:
         now = time.time()
         with self._write_lock:
             with self._connect() as conn:
@@ -89,12 +115,14 @@ class TaskDB:
                     INSERT INTO tasks
                     (task_id, source_dir, file_list_json, remote_dir, base_name,
                      volume_size_bytes, remote_suffix, status,
-                     created_at, updated_at, fixed_modified_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     created_at, updated_at, fixed_modified_at,
+                     fingerprint, format_version)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     task_id, source_dir, json.dumps(file_list),
                     remote_dir, base_name, volume_size_bytes, remote_suffix,
-                    TaskStatus.PENDING.value, now, now, now
+                    TaskStatus.PENDING.value, now, now, now,
+                    fingerprint, format_version
                 ))
 
     def update_task_status(self, task_id: str, status: TaskStatus,
@@ -169,6 +197,50 @@ class TaskDB:
                     task_id, part_number, remote_path, local_temp_path, md5,
                     'pending', now, now
                 ))
+
+    def upsert_volume(self, task_id: str, part_number: int, remote_path: str,
+                      local_temp_path: Optional[str] = None,
+                      md5: Optional[str] = None,
+                      size_bytes: Optional[int] = None,
+                      start_offset: Optional[int] = None) -> None:
+        """
+        写入（或更新）一条分卷记录。
+
+        压缩器在写出每一卷时就调用它，此时上传线程还没开始，所以记录先以
+        pending 状态落库；上传线程随后只会更新 status。
+        """
+        now = time.time()
+        with self._write_lock:
+            with self._connect() as conn:
+                row = conn.execute(
+                    "SELECT id FROM volumes WHERE task_id = ? AND part_number = ?",
+                    (task_id, part_number)
+                ).fetchone()
+                if row is None:
+                    conn.execute("""
+                        INSERT INTO volumes
+                        (task_id, part_number, remote_path, local_temp_path, md5,
+                         size_bytes, start_offset, status, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (task_id, part_number, remote_path, local_temp_path, md5,
+                          size_bytes, start_offset, 'pending', now, now))
+                else:
+                    conn.execute("""
+                        UPDATE volumes
+                        SET remote_path = ?, local_temp_path = ?, md5 = ?,
+                            size_bytes = ?, start_offset = ?, updated_at = ?
+                        WHERE task_id = ? AND part_number = ?
+                    """, (remote_path, local_temp_path, md5, size_bytes,
+                          start_offset, now, task_id, part_number))
+
+    def get_volume(self, task_id: str, part_number: int) -> Optional[Dict[str, Any]]:
+        with self._connect() as conn:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute(
+                "SELECT * FROM volumes WHERE task_id = ? AND part_number = ?",
+                (task_id, part_number)
+            ).fetchone()
+            return dict(row) if row else None
 
     def update_volume_status(self, task_id: str, part_number: int,
                              status: str,

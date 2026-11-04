@@ -10,7 +10,7 @@ from typing import List, Optional
 from src.logger import get_logger
 from src.config.settings import ResourceSettings
 from src.hardware.resource_manager import ResourceManager
-from src.core.compressor import compress_and_split
+from src.core.compressor import compress_and_split, compute_fingerprint, VolumeInfo
 from src.core.uploader import VolumeUploader, UploadResult
 from src.baidu.client import BaiduClient
 from src.database.task_db import TaskDB, TaskStatus
@@ -56,13 +56,26 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
 
     db.update_task_status(task_id, TaskStatus.RUNNING)
 
+    def _record_volume(info: VolumeInfo) -> None:
+        """压缩器每写完一卷就调用：把 MD5 / 大小 / 偏移落库，供续传校验。"""
+        remote_path = (f"{task['remote_dir'].rstrip('/')}/{task['base_name']}"
+                       f".part{info.part_number:04d}{uploader.remote_suffix}")
+        try:
+            db.upsert_volume(
+                task_id, info.part_number, remote_path, info.temp_path,
+                md5=info.md5, size_bytes=info.size, start_offset=info.start_offset,
+            )
+        except Exception as e:      # 记录失败不该中断上传
+            logger.warning(f"记录分卷元数据失败（卷 {info.part_number}）: {e}")
+
     try:
         vol_gen = compress_and_split(
             source_dir=task['source_dir'],
             file_list=task['file_list'],
             volume_size_bytes=task['volume_size_bytes'],
             resource_manager=rm,
-            fixed_modified_at=_ts_to_dt(task['fixed_modified_at'] or task['created_at'])
+            fixed_modified_at=_ts_to_dt(task['fixed_modified_at'] or task['created_at']),
+            on_volume_complete=_record_volume,
         )
         if backpressure == 0:
             bp = uploader.worker_count * 2
@@ -176,8 +189,10 @@ def upload(source, files, remote, name, volume_size, resume, ext, backpressure):
         _run_upload(task_id, existing, db, backpressure=bp_limit)
         return
 
+    fingerprint = compute_fingerprint(str(source_dir), file_list)
     db.create_task(task_id, str(source_dir), file_list, remote, name,
-                   volume_size, remote_suffix=ext)
+                   volume_size, remote_suffix=ext, fingerprint=fingerprint,
+                   format_version=1)
     task = db.get_task(task_id)
     _run_upload(task_id, task, db, backpressure=bp_limit)
 
