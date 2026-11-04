@@ -152,7 +152,25 @@ python main.py --gui                     # 图形界面（尚未实现）
 
 ## 配置
 
-当前需要编辑 `src/config/settings.py`。关键项：
+配置按优先级生效（高 → 低）：
+
+1. 环境变量 `STREAMPACK_<字段名大写>`
+2. 用户配置文件 `~/.netdisk_uploader/config.json`
+3. `src/config/settings.py` 里的代码默认值
+
+用 `config` 命令管理，不需要改源码：
+
+```bash
+python main.py config list                      # 列出全部配置项及其来源（env / file / default）
+python main.py config get max_upload_retries    # 读一项
+python main.py config set max_upload_retries 5  # 改一项，写入配置文件
+python main.py config unset max_upload_retries  # 恢复默认值
+python main.py config path                      # 显示配置文件位置
+```
+
+配置文件只保存你显式改过的项，其余字段继续跟随代码默认值——这样升级后新的默认值能自动生效。
+
+可配置项：
 
 | 配置项 | 默认值 | 含义 |
 |:---|:---|:---|
@@ -163,7 +181,12 @@ python main.py --gui                     # 图形界面（尚未实现）
 | `max_upload_retries` | 3 | 单个分卷的最大尝试次数（含首次） |
 | `retry_backoff_seconds` | 2.0 | 首次重试的等待秒数，之后按 2 的幂递增 |
 
-持久化的用户配置文件在路线图中。
+也可以临时用环境变量覆盖，不改文件：
+
+```bash
+set STREAMPACK_MAX_UPLOAD_RETRIES=1        # Windows
+export STREAMPACK_MAX_UPLOAD_RETRIES=1     # Linux / macOS
+```
 
 ## 常见问题
 
@@ -212,7 +235,7 @@ cat arch.part*.zip > arch.zip
 
 ## 路线图
 
-- [ ] 用户配置文件与 `config` 命令
+- [x] 用户配置文件与 `config` 命令
 - [x] 分卷 MD5 落库，续传时逐卷校验
 - [x] 归档内置 `__streampack__.json` 清单
 - [ ] 图形界面（PySide6）

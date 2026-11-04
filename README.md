@@ -152,7 +152,25 @@ A failed volume is retried with exponential backoff: 3 attempts by default, wait
 
 ## Configuration
 
-Currently edited in `src/config/settings.py`. Key options:
+Configuration resolves in this order (highest first):
+
+1. environment variables `STREAMPACK_<FIELD NAME>`
+2. the user config file `~/.netdisk_uploader/config.json`
+3. code defaults in `src/config/settings.py`
+
+Manage it with the `config` command — no source edits needed:
+
+```bash
+python main.py config list                      # every option and where its value comes from
+python main.py config get max_upload_retries    # read one
+python main.py config set max_upload_retries 5  # change one (written to the config file)
+python main.py config unset max_upload_retries  # back to the default
+python main.py config path                      # where the config file lives
+```
+
+The file only stores options you changed explicitly; everything else keeps following the code defaults, so new defaults take effect after an upgrade.
+
+Options:
 
 | Option | Default | Meaning |
 |:---|:---|:---|
@@ -163,7 +181,12 @@ Currently edited in `src/config/settings.py`. Key options:
 | `max_upload_retries` | 3 | Max attempts per volume, including the first |
 | `retry_backoff_seconds` | 2.0 | Delay before the first retry; doubles each time |
 
-A user config file is on the roadmap.
+Any option can also be overridden per-session with an environment variable:
+
+```bash
+export STREAMPACK_MAX_UPLOAD_RETRIES=1     # Linux / macOS
+set STREAMPACK_MAX_UPLOAD_RETRIES=1        # Windows
+```
 
 ## FAQ
 
@@ -212,7 +235,7 @@ The result opens directly. Its first entry is `__streampack__.json`, recording t
 
 ## Roadmap
 
-- [ ] User config file and `config` command
+- [x] User config file and `config` command
 - [x] MD5 checksums for volumes, verified per volume on resume
 - [x] `__streampack__.json` manifest embedded in the archive
 - [ ] Graphical interface (PySide6)
