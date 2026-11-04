@@ -1,6 +1,6 @@
 # src/baidu/auth.py
 import json
-import logging
+from src.logger import get_logger
 import time
 from pathlib import Path
 from typing import Dict, Optional
@@ -8,7 +8,7 @@ from urllib.parse import urlencode
 
 import requests
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 BAIDU_OAUTH_BASE = "https://openapi.baidu.com/oauth/2.0"
 AUTHORIZE_URL = f"{BAIDU_OAUTH_BASE}/authorize"

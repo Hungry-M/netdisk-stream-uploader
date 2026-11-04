@@ -1,13 +1,13 @@
 # src/hardware/resource_manager.py
 import os
 import glob
-import logging
+from src.logger import get_logger
 from typing import Optional, Tuple, List
 
 from src.config.settings import ResourceSettings
 from src.config.hardware_profile import HardwareProfile
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ResourceManager:

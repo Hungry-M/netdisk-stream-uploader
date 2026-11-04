@@ -1,13 +1,13 @@
 # src/baidu/client.py
 import requests
 import json
-import logging
+from src.logger import get_logger
 from urllib.parse import quote
 from typing import Dict, Optional, BinaryIO
 
 from src.baidu.auth import BaiduOAuth
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 普通 API 基础地址（用于非上传操作）
 BAIDU_API_BASE = "https://pan.baidu.com/rest/2.0/pcs"

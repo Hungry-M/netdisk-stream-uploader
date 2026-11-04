@@ -11,11 +11,11 @@
 """
 import json
 import os
-import logging
+from src.logger import get_logger
 from pathlib import Path
 from typing import Optional
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Credentials:

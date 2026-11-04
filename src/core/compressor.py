@@ -1,7 +1,7 @@
 # src/core/compressor.py
 import os
 import tempfile
-import logging
+from src.logger import get_logger
 from pathlib import Path
 from datetime import datetime
 from typing import List, Generator, BinaryIO, Optional
@@ -9,7 +9,7 @@ from stream_zip import stream_zip, ZIP_64
 
 from src.hardware.resource_manager import ResourceManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _walk_files(root_dir: str, file_list: List[str],

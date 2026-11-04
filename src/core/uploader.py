@@ -1,7 +1,7 @@
 # src/core/uploader.py
 import os
 import sys
-import logging
+from src.logger import get_logger
 from enum import Enum
 from typing import BinaryIO, Generator, List, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed, wait, FIRST_COMPLETED
@@ -10,7 +10,7 @@ from src.baidu.client import BaiduClient
 from src.hardware.resource_manager import ResourceManager
 from src.database.task_db import TaskDB
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class UploadResult(Enum):

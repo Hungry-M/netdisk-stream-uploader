@@ -6,9 +6,9 @@ import threading
 from typing import List, Dict, Optional, Any
 from enum import Enum
 from pathlib import Path
-import logging
+from src.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TaskStatus(Enum):

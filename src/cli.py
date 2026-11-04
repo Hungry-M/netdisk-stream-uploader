@@ -1,6 +1,5 @@
 # src/cli.py
 import click
-import logging
 import hashlib
 import os
 import sys
@@ -8,6 +7,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Optional
 
+from src.logger import get_logger
 from src.config.settings import ResourceSettings
 from src.hardware.resource_manager import ResourceManager
 from src.core.compressor import compress_and_split
@@ -15,7 +15,7 @@ from src.core.uploader import VolumeUploader, UploadResult
 from src.baidu.client import BaiduClient
 from src.database.task_db import TaskDB, TaskStatus
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 DEFAULT_VOLUME_SIZE = 1 * 1024 * 1024 * 1024
@@ -251,6 +251,6 @@ def delete(task_id, yes):
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s - %(levelname)s - %(message)s')
+    from src.logger import setup_logging
+    setup_logging()
     cli()

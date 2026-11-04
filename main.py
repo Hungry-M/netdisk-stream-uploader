@@ -7,13 +7,7 @@ from typing import List, Optional
 
 import click
 
-
-def _setup_logging(level: str = "INFO") -> None:
-    logging.basicConfig(
-        level=getattr(logging, level.upper(), logging.INFO),
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        force=True,
-    )
+from src.logger import setup_logging
 
 
 def _run_cli(argv: List[str]) -> int:
@@ -58,22 +52,54 @@ def _run_gui() -> int:
     return run_gui()
 
 
+def _parse_global_args(argv: List[str]):
+    """
+    摘出 main 自己的全局开关，剩下的交给 click。
+
+    支持：--debug / --quiet / --gui / --log-file <路径> / --log-file=<路径>
+    """
+    debug = False
+    quiet = False
+    mode = "cli"
+    log_file: Optional[str] = None
+    remaining: List[str] = []
+
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--debug":
+            debug = True
+        elif arg == "--quiet":
+            quiet = True
+        elif arg == "--gui":
+            mode = "gui"
+        elif arg == "--log-file":
+            i += 1
+            if i >= len(argv):
+                print("--log-file 缺少路径参数", file=sys.stderr)
+                return None
+            log_file = argv[i]
+        elif arg.startswith("--log-file="):
+            log_file = arg.split("=", 1)[1]
+        else:
+            remaining.append(arg)
+        i += 1
+
+    # --debug 优先于 --quiet
+    level = "DEBUG" if debug else ("WARNING" if quiet else "INFO")
+    return mode, level, log_file, remaining
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     if argv is None:
         argv = sys.argv[1:]
 
-    debug = False
-    mode = "cli"
-    remaining: List[str] = []
-    for arg in argv:
-        if arg == "--debug":
-            debug = True
-        elif arg == "--gui":
-            mode = "gui"
-        else:
-            remaining.append(arg)
+    parsed = _parse_global_args(argv)
+    if parsed is None:
+        return 2
+    mode, level, log_file, remaining = parsed
 
-    _setup_logging("DEBUG" if debug else "INFO")
+    setup_logging(level, log_file=log_file)
 
     if mode == "gui":
         return _run_gui()
