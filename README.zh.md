@@ -33,6 +33,8 @@
 - 流式压缩，基于 [`stream-zip`](https://pypi.org/project/stream-zip/)
 - 分卷上传，每个分卷都远小于百度 API 的单文件上限
 - 断点续传，SQLite 任务追踪，已完成分卷自动跳过
+- 源文件指纹校验，续传前确认源文件未被改动
+- 归档自描述，ZIP 第一个条目是 `__streampack__.json`（任务参数 + 完整文件清单）
 - 失败重试，按指数退避自动重试（默认 3 次）
 - 并发上传，工作线程数可配置
 - 背压控制，可选，限制同时在传的分卷数量
@@ -105,6 +107,14 @@ python main.py upload -s /data -f "a.mp4,b.mp4" -r /apps/StreamPack -n backup
 ```
 
 进程被强制结束（关窗口、断电）时，任务状态会停在 `running`。下次启动任意命令时会自动把它复位成 `interrupted`，并用一行提示告诉你数量，之后 `resume` 即可继续。
+
+续传前会比对源文件指纹。若文件被增删改，程序会列出具体差异并中止，不会用错位的数据继续上传：
+
+```bash
+python main.py resume <task_id>                 # 默认 full：指纹 + 逐卷 MD5
+python main.py resume <task_id> --verify=stat   # 只比指纹
+python main.py resume <task_id> --verify=off    # 跳过校验（确定源没变时用）
+```
 
 ### 删除任务记录
 
@@ -181,6 +191,20 @@ python main.py --gui                     # 图形界面（尚未实现）
 
 可以。Ctrl+C 会停止后续分卷并清理未上传的临时文件，已上传的分卷记录保留在数据库里，下次 `resume` 从断点继续。
 
+**怎么把分卷还原成一个 zip**
+
+分卷是整条 ZIP 字节流的切片，按编号顺序拼接即可：
+
+```cmd
+copy /b arch.part0001.zip+arch.part0002.zip+arch.part0003.zip arch.zip
+```
+
+```bash
+cat arch.part*.zip > arch.zip
+```
+
+还原后直接解压即可。第一个条目是 `__streampack__.json`，记录了任务参数和完整文件清单，可以据此确认这批分卷是从哪来的。
+
 ## 环境要求
 
 - Python 3.10+
@@ -189,8 +213,8 @@ python main.py --gui                     # 图形界面（尚未实现）
 ## 路线图
 
 - [ ] 用户配置文件与 `config` 命令
-- [ ] 分卷 MD5 落库，续传时校验
-- [ ] 每个分卷内置 `manifest.json`
+- [x] 分卷 MD5 落库，续传时逐卷校验
+- [x] 归档内置 `__streampack__.json` 清单
 - [ ] 图形界面（PySide6）
 - [ ] 多语言支持（gettext）
 - [ ] 更多网盘后端（通过 `StorageProvider` 接口）

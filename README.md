@@ -33,6 +33,8 @@ Peak local disk usage is approximately the size of a single volume (1 GB by defa
 - Streaming compression, powered by [`stream-zip`](https://pypi.org/project/stream-zip/)
 - Volume-based upload, each volume well under the Baidu API single-file limit
 - Resumable uploads, with SQLite task tracking and automatic skipping of completed volumes
+- Source fingerprint check, confirming nothing changed before a resume
+- Self-describing archive: the first ZIP entry is `__streampack__.json` (task parameters + full file list)
 - Automatic retries with exponential backoff (3 attempts by default)
 - Concurrent uploads, with a configurable worker count
 - Backpressure control, an optional cap on in-flight volumes
@@ -105,6 +107,14 @@ python main.py upload -s /data -f "a.mp4,b.mp4" -r /apps/StreamPack -n backup
 ```
 
 If the process is killed (window closed, power loss), the task stays in `running`. The next command of any kind resets it to `interrupted` and prints how many tasks were reset; `resume` continues from there.
+
+Before resuming, the source files are fingerprinted. If anything was added, removed or modified, the differences are listed and the resume aborts rather than continuing with a misaligned stream:
+
+```bash
+python main.py resume <task_id>                 # default full: fingerprint + per-volume MD5
+python main.py resume <task_id> --verify=stat   # fingerprint only
+python main.py resume <task_id> --verify=off    # skip the check (only if you know nothing changed)
+```
 
 ### Delete task records
 
@@ -181,6 +191,20 @@ Roughly `volume size × (1 + in-flight volumes)`. Backpressure is off by default
 
 Yes. Ctrl+C stops scheduling further volumes and removes the ones not yet uploaded; completed volumes stay recorded, and `resume` continues from there.
 
+**How do I put the volumes back together**
+
+Each volume is a slice of one continuous ZIP byte stream — concatenate them in order:
+
+```bash
+cat arch.part*.zip > arch.zip
+```
+
+```cmd
+copy /b arch.part0001.zip+arch.part0002.zip+arch.part0003.zip arch.zip
+```
+
+The result opens directly. Its first entry is `__streampack__.json`, recording the task parameters and the full file list, so you can tell where the volumes came from.
+
 ## Requirements
 
 - Python 3.10+
@@ -189,8 +213,8 @@ Yes. Ctrl+C stops scheduling further volumes and removes the ones not yet upload
 ## Roadmap
 
 - [ ] User config file and `config` command
-- [ ] MD5 checksums for volumes, verified on resume
-- [ ] Built-in `manifest.json` inside each volume
+- [x] MD5 checksums for volumes, verified per volume on resume
+- [x] `__streampack__.json` manifest embedded in the archive
 - [ ] Graphical interface (PySide6)
 - [ ] Multi-language support (gettext)
 - [ ] Additional netdisk providers (via a `StorageProvider` interface)
