@@ -87,6 +87,7 @@ class TaskDB:
         wanted = {
             'tasks': [
                 ('fingerprint', 'TEXT'),        # 源文件清单指纹
+                ('entries_json', 'TEXT'),       # 清单原文，用于续传时列出差异
                 ('format_version', 'INTEGER'),  # 1 = 无 manifest，2 = 有
             ],
             'volumes': [
@@ -107,6 +108,7 @@ class TaskDB:
                     remote_dir: str, base_name: str, volume_size_bytes: int,
                     remote_suffix: str = ".zip",
                     fingerprint: Optional[str] = None,
+                    entries_json: Optional[str] = None,
                     format_version: int = 1) -> None:
         now = time.time()
         with self._write_lock:
@@ -116,14 +118,24 @@ class TaskDB:
                     (task_id, source_dir, file_list_json, remote_dir, base_name,
                      volume_size_bytes, remote_suffix, status,
                      created_at, updated_at, fixed_modified_at,
-                     fingerprint, format_version)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     fingerprint, entries_json, format_version)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     task_id, source_dir, json.dumps(file_list),
                     remote_dir, base_name, volume_size_bytes, remote_suffix,
                     TaskStatus.PENDING.value, now, now, now,
-                    fingerprint, format_version
+                    fingerprint, entries_json, format_version
                 ))
+
+    def update_task_fingerprint(self, task_id: str, fingerprint: str,
+                                entries_json: Optional[str] = None) -> None:
+        """给升级前的老任务补记指纹基线（只在缺失时调用）。"""
+        with self._write_lock:
+            with self._connect() as conn:
+                conn.execute("""
+                    UPDATE tasks SET fingerprint = ?, entries_json = ?, updated_at = ?
+                    WHERE task_id = ?
+                """, (fingerprint, entries_json, time.time(), task_id))
 
     def update_task_status(self, task_id: str, status: TaskStatus,
                            error_message: Optional[str] = None) -> None:

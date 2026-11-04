@@ -1,6 +1,7 @@
 # src/cli.py
 import click
 import hashlib
+import json
 import os
 import sys
 from pathlib import Path
@@ -10,7 +11,10 @@ from typing import List, Optional
 from src.logger import get_logger
 from src.config.settings import ResourceSettings
 from src.hardware.resource_manager import ResourceManager
-from src.core.compressor import compress_and_split, compute_fingerprint, VolumeInfo
+from src.core.compressor import (
+    compress_and_split, entries_payload, fingerprint_of, diff_entries,
+    VolumeInfo, VolumeMismatchError,
+)
 from src.core.uploader import VolumeUploader, UploadResult
 from src.baidu.client import BaiduClient
 from src.database.task_db import TaskDB, TaskStatus
@@ -40,8 +44,92 @@ def _ts_to_dt(ts: float) -> datetime:
     return datetime.fromtimestamp(ts)
 
 
+VERIFY_CHOICES = ['full', 'stat', 'off']
+
+
+def _print_diff(diff: dict, limit: int = 5) -> None:
+    """把源文件差异打印成人能读的形式，每类最多列 limit 条。"""
+    added, removed, changed = diff['added'], diff['removed'], diff['changed']
+    if not (added or removed or changed):
+        return
+
+    click.echo("[DIFF] 源文件与任务创建时不一致：", err=True)
+    for item in added[:limit]:
+        click.echo(f"  + {item[0]}  ({item[1]} 字节)", err=True)
+    for item in removed[:limit]:
+        click.echo(f"  - {item[0]}  （已删除）", err=True)
+    for name, kind, old, new in changed[:limit]:
+        if kind == 'size':
+            click.echo(f"  ~ {name}  大小 {old} → {new}", err=True)
+        else:
+            click.echo(f"  ~ {name}  mtime 变了", err=True)
+
+    for label, items in (("新增", added), ("删除", removed), ("改动", changed)):
+        if len(items) > limit:
+            click.echo(f"  … 另有 {len(items) - limit} 个{label}未列出", err=True)
+
+
+def _verify_source(task: dict, db: TaskDB, task_id: str, verify: str) -> None:
+    """
+    续传前确认源文件没被改动过。
+
+    指纹不一致时**不自动重建**：task_id 由参数哈希得到，重建会覆盖云端同名
+    分卷，必须由用户显式决定。
+    """
+    if verify == 'off':
+        return
+
+    current = entries_payload(task['source_dir'], task['file_list'])
+    stored_fp = task.get('fingerprint')
+
+    if not stored_fp:
+        # 升级前创建的老任务没有基线，补记一次，本次无法比对
+        db.update_task_fingerprint(
+            task_id, fingerprint_of(current), json.dumps(current)
+        )
+        click.echo("[INFO] 该任务没有指纹基线，已按当前源文件补记；本次不做比对")
+        return
+
+    if stored_fp == fingerprint_of(current):
+        return
+
+    try:
+        stored = json.loads(task.get('entries_json') or '[]')
+    except (TypeError, ValueError):
+        stored = []
+
+    _print_diff(diff_entries(stored, current))
+    click.echo(
+        "\n[ERR] 源文件已变化，中断前上传的分卷无法与新生成的字节流对齐。\n"
+        f"      选择一：`delete {task_id}` 后重建（会得到新的 task_id，旧分卷留在云端需自行清理）\n"
+        "      选择二：确认源文件其实没变（例如只改动了 mtime），加 `--verify=off` 强制续传",
+        err=True,
+    )
+    raise SystemExit(1)
+
+
+def _check_volume_against_record(prev: Optional[dict], info: VolumeInfo) -> None:
+    """
+    把刚压出来的一卷与数据库记录比对。
+
+    只在与"已完成"的分卷比较时才有意义：未上传的卷本来就该被覆盖。
+    老记录没有 md5（本功能上线前创建）时跳过比对，否则会误判。
+    """
+    if not prev or prev.get('status') != 'done' or prev.get('md5') is None:
+        return
+    if (prev['md5'] != info.md5
+            or prev.get('size_bytes') != info.size
+            or prev.get('start_offset') != info.start_offset):
+        raise VolumeMismatchError(
+            f"第 {info.part_number} 卷与记录不符："
+            f"md5 记录 {prev['md5'][:8]}… 实际 {info.md5[:8]}…，"
+            f"大小记录 {prev.get('size_bytes')} 实际 {info.size}"
+        )
+
+
 def _run_upload(task_id: str, task: dict, db: TaskDB,
-                backpressure: Optional[int] = None) -> None:
+                backpressure: Optional[int] = None,
+                verify: str = 'full') -> None:
     settings = ResourceSettings()
     rm = ResourceManager(settings)
 
@@ -50,6 +138,8 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
     if cleaned:
         click.echo(f"[CLEAN] 清理了 {cleaned} 个残留分卷")
 
+    _verify_source(task, db, task_id, verify)
+
     baidu_client = get_client()
     uploader = VolumeUploader(baidu_client, rm, db=db, task_id=task_id)
     uploader.remote_suffix = task.get('remote_suffix', '.zip')
@@ -57,7 +147,14 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
     db.update_task_status(task_id, TaskStatus.RUNNING)
 
     def _record_volume(info: VolumeInfo) -> None:
-        """压缩器每写完一卷就调用：把 MD5 / 大小 / 偏移落库，供续传校验。"""
+        """压缩器每写完一卷就调用。
+
+        - 与库里已有记录比对（校验）；不一致直接抛错，中止后续上传；
+        - 一致或尚无记录时，把 MD5 / 大小 / 偏移落库。
+        """
+        if verify == 'full':
+            _check_volume_against_record(db.get_volume(task_id, info.part_number), info)
+
         remote_path = (f"{task['remote_dir'].rstrip('/')}/{task['base_name']}"
                        f".part{info.part_number:04d}{uploader.remote_suffix}")
         try:
@@ -112,6 +209,11 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
                                   error_message=f"所有分卷失败: {failed}")
             click.echo(f"[ERR] 任务 {task_id} 全部失败", err=True)
 
+    except VolumeMismatchError as e:
+        db.update_task_status(task_id, TaskStatus.FAILED, error_message=str(e))
+        click.echo(f"[ERR] 续传校验失败：{e}", err=True)
+        click.echo("      源文件在中断后被改动过，请 `delete` 后重建任务。", err=True)
+        raise SystemExit(1)
     except KeyboardInterrupt:
         # 已被 uploader 记录状态，这里仅提示
         sys.stderr.write("[STOP] 任务已中断，可通过 `resume` 恢复\n")
@@ -160,7 +262,10 @@ def cli():
 @click.option('--backpressure', default=None, is_flag=False, flag_value='auto',
               help='启用背压。无值=默认上限；--backpressure=20=上限20；不传=不启用')
 @click.option('--ext', default='.zip', help='上传后的文件后缀（如 .zip / .zi123p）')
-def upload(source, files, remote, name, volume_size, resume, ext, backpressure):
+@click.option('--verify', type=click.Choice(VERIFY_CHOICES), default='full',
+              show_default=True,
+              help='续传前校验：full=指纹+逐卷 MD5，stat=只比指纹，off=不校验')
+def upload(source, files, remote, name, volume_size, resume, ext, backpressure, verify):
     """创建并执行上传任务。若任务已存在，将续传/重跑。"""
     file_list = [f.strip() for f in files.split(',')]
     source_dir = Path(source).resolve()
@@ -186,20 +291,25 @@ def upload(source, files, remote, name, volume_size, resume, ext, backpressure):
             click.echo(f"任务 {task_id} 已完成。如需重做请先 delete。")
             return
         click.echo(f"发现任务 {task_id}（{status}），将续传/重跑")
-        _run_upload(task_id, existing, db, backpressure=bp_limit)
+        _run_upload(task_id, existing, db, backpressure=bp_limit, verify=verify)
         return
 
-    fingerprint = compute_fingerprint(str(source_dir), file_list)
+    entries = entries_payload(str(source_dir), file_list)
     db.create_task(task_id, str(source_dir), file_list, remote, name,
-                   volume_size, remote_suffix=ext, fingerprint=fingerprint,
+                   volume_size, remote_suffix=ext,
+                   fingerprint=fingerprint_of(entries),
+                   entries_json=json.dumps(entries),
                    format_version=1)
     task = db.get_task(task_id)
-    _run_upload(task_id, task, db, backpressure=bp_limit)
+    _run_upload(task_id, task, db, backpressure=bp_limit, verify=verify)
 
 
 @cli.command()
 @click.argument('task_id')
-def resume(task_id):
+@click.option('--verify', type=click.Choice(VERIFY_CHOICES), default='full',
+              show_default=True,
+              help='续传前校验：full=指纹+逐卷 MD5，stat=只比指纹，off=不校验')
+def resume(task_id, verify):
     """恢复中断的上传任务"""
     db = TaskDB()
     task = db.get_task(task_id)
@@ -211,7 +321,7 @@ def resume(task_id):
         return
     click.echo(f"已上传分卷: {db.get_completed_part_numbers(task_id)}")
     click.echo(f"待重试分卷: {db.get_failed_part_numbers(task_id)}")
-    _run_upload(task_id, task, db, backpressure=None)
+    _run_upload(task_id, task, db, backpressure=None, verify=verify)
 
 
 @cli.command(name='list')

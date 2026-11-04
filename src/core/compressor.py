@@ -34,6 +34,10 @@ class VolumeInfo:
     start_offset: int     # 该卷在整条 ZIP 字节流中的起始偏移
 
 
+class VolumeMismatchError(Exception):
+    """续传时重新压缩出的分卷与数据库记录不符 —— 源文件在中断后被改动过。"""
+
+
 def iter_entries(root_dir: str, file_list: List[str],
                  warn_missing: bool = True) -> Iterator[Entry]:
     """
@@ -79,6 +83,23 @@ def iter_entries(root_dir: str, file_list: List[str],
             yield _entry(file_path)
 
 
+def entries_payload(source_dir: str, file_list: List[str]) -> List[list]:
+    """
+    源文件清单的纯数据形式：[[arcname, size, mtime_ns], ...]。
+
+    既是指纹的输入，也是落库后做差异对比的依据。
+    """
+    return [
+        [e.arcname, e.size, e.mtime_ns]
+        for e in iter_entries(source_dir, file_list, warn_missing=False)
+    ]
+
+
+def fingerprint_of(payload: List[list]) -> str:
+    raw = json.dumps(payload, ensure_ascii=False, separators=(',', ':'))
+    return hashlib.sha256(raw.encode('utf-8')).hexdigest()
+
+
 def compute_fingerprint(source_dir: str, file_list: List[str]) -> str:
     """
     源文件的"清单指纹"：路径 + 大小 + mtime_ns，按压缩顺序拼接后取 SHA-256。
@@ -86,12 +107,34 @@ def compute_fingerprint(source_dir: str, file_list: List[str]) -> str:
     续传时先比它：不一致说明源已经变了，重新压缩必然产生不同的字节流，
     已上传的分卷全部失效。
     """
-    payload = [
-        [e.arcname, e.size, e.mtime_ns]
-        for e in iter_entries(source_dir, file_list, warn_missing=False)
-    ]
-    raw = json.dumps(payload, ensure_ascii=False, separators=(',', ':'))
-    return hashlib.sha256(raw.encode('utf-8')).hexdigest()
+    return fingerprint_of(entries_payload(source_dir, file_list))
+
+
+def diff_entries(old: List[list], new: List[list]) -> dict:
+    """
+    对比两份清单，返回 {added, removed, changed}。
+
+    changed 里的每项是 (arcname, 'size'|'mtime', 旧值, 新值)。
+    """
+    old_map = {item[0]: item for item in old}
+    new_map = {item[0]: item for item in new}
+
+    added = [new_map[name] for name in new_map.keys() - old_map.keys()]
+    removed = [old_map[name] for name in old_map.keys() - new_map.keys()]
+
+    changed = []
+    for name in old_map.keys() & new_map.keys():
+        old_item, new_item = old_map[name], new_map[name]
+        if old_item[1] != new_item[1]:
+            changed.append((name, 'size', old_item[1], new_item[1]))
+        elif old_item[2] != new_item[2]:
+            changed.append((name, 'mtime', old_item[2], new_item[2]))
+
+    return {
+        'added': sorted(added, key=lambda x: x[0]),
+        'removed': sorted(removed, key=lambda x: x[0]),
+        'changed': sorted(changed, key=lambda x: x[0]),
+    }
 
 
 def _walk_files(root_dir: str, file_list: List[str],
