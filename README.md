@@ -2,7 +2,7 @@
 
 > **StreamPack** — A streaming netdisk uploader with volume-based compression.
 >
-> [中文文档](README.zh-CN.md)
+> [中文文档](README.zh.md)
 
 Compress multiple files and folders into a ZIP archive, split it into volumes, and upload each volume to Baidu Netdisk as it is produced — without ever storing the whole archive in memory or on disk.
 
