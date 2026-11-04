@@ -4,6 +4,7 @@ import io
 import json
 import os
 import zipfile
+from datetime import datetime
 
 from src.config.settings import ResourceSettings
 from src.hardware.resource_manager import ResourceManager
@@ -26,6 +27,7 @@ def _compress(sample_files, tmp_path, manifest=None, volume_size=60 * 1024):
         file_list=files,
         volume_size_bytes=volume_size,
         resource_manager=_rm(tmp_path),
+        fixed_modified_at=datetime(2024, 1, 1, 12, 0, 0),   # 复现的前提
         manifest=manifest,
     ))
     return vols

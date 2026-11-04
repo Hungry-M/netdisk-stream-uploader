@@ -10,6 +10,10 @@ from typing import List, Optional
 
 from src.logger import get_logger
 from src.config.settings import ResourceSettings
+from src.config.user_config import (
+    build_settings, config_path, effective_values, load_config,
+    set_value, sources, unset_value, SPECS, ENV_PREFIX,
+)
 from src.hardware.resource_manager import ResourceManager
 from src.core.compressor import (
     compress_and_split, entries_payload, fingerprint_of, diff_entries,
@@ -155,7 +159,7 @@ def _check_volume_against_record(prev: Optional[dict], info: VolumeInfo) -> None
 def _run_upload(task_id: str, task: dict, db: TaskDB,
                 backpressure: Optional[int] = None,
                 verify: str = 'full') -> None:
-    settings = ResourceSettings()
+    settings = build_settings()
     rm = ResourceManager(settings)
 
     # 清理上次中断残留的孤儿分卷
@@ -406,6 +410,92 @@ def delete(task_id, yes):
         click.confirm(f"确定要删除任务 {task_id} 吗？", abort=True)
     db.delete_task(task_id)
     click.echo(f"任务 {task_id} 已删除")
+
+
+@cli.group()
+def config():
+    """查看与修改用户配置（~/.netdisk_uploader/config.json）"""
+
+
+@config.command('path')
+def config_path_cmd():
+    """显示配置文件位置"""
+    p = config_path()
+    click.echo(str(p))
+    click.echo(f"状态: {'已存在' if p.exists() else '尚未创建（全部使用默认值）'}")
+
+
+@config.command('list')
+def config_list():
+    """列出所有配置项及其来源"""
+    values = effective_values()
+    srcs = sources()
+
+    def render(value) -> str:
+        if isinstance(value, list):
+            return ",".join(str(v) for v in value)
+        return "None" if value is None else str(value)
+
+    rows = [(name, render(values[name]), srcs[name]) for name in SPECS]
+    name_width = max(len(r[0]) for r in rows)
+    value_width = min(max(len(r[1]) for r in rows), 72)
+
+    click.echo(f"{'配置项':<{name_width}}  {'值':<{value_width}}  来源")
+    click.echo("-" * (name_width + value_width + 12))
+    for name, shown, source in rows:
+        click.echo(f"{name:<{name_width}}  {shown:<{value_width}}  {source}")
+
+    click.echo()
+    click.echo(f"来源：env = 环境变量 {ENV_PREFIX}<字段名>，"
+               f"file = 配置文件，default = 代码默认值")
+
+
+@config.command('get')
+@click.argument('key')
+def config_get(key):
+    """读取一项配置的生效值"""
+    if key not in SPECS:
+        click.echo(f"[ERR] 未知配置项: {key}（用 `config list` 查看可选项）", err=True)
+        raise SystemExit(1)
+    value = effective_values()[key]
+    if isinstance(value, list):
+        click.echo(",".join(str(v) for v in value))
+    elif value is None:
+        click.echo("None")
+    else:
+        click.echo(value)
+
+
+@config.command('set')
+@click.argument('key')
+@click.argument('value')
+def config_set(key, value):
+    """修改一项配置（写入配置文件）"""
+    if key not in SPECS:
+        click.echo(f"[ERR] 未知配置项: {key}（用 `config list` 查看可选项）", err=True)
+        raise SystemExit(1)
+    try:
+        path = set_value(key, value)
+    except ValueError as e:
+        click.echo(f"[ERR] {e}", err=True)
+        raise SystemExit(1)
+    except TypeError as e:
+        click.echo(f"[ERR] 取值不合法: {e}", err=True)
+        raise SystemExit(1)
+    click.echo(f"[OK] {key} = {effective_values()[key]}")
+    click.echo(f"     已写入 {path}")
+
+
+@config.command('unset')
+@click.argument('key')
+def config_unset(key):
+    """删除一项配置，回到默认值"""
+    if key not in SPECS:
+        click.echo(f"[ERR] 未知配置项: {key}", err=True)
+        raise SystemExit(1)
+    path = unset_value(key)
+    click.echo(f"[OK] {key} 已恢复默认值（{effective_values()[key]}）")
+    click.echo(f"     已写入 {path}")
 
 
 if __name__ == '__main__':
