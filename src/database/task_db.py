@@ -18,6 +18,7 @@ class TaskStatus(Enum):
     FAILED = 'failed'
     PARTIAL = 'partial'
     PAUSED = 'paused'
+    INTERRUPTED = 'interrupted'   # 进程异常退出后由下次启动复位而来
 
 
 class TaskDB:
@@ -240,6 +241,27 @@ class TaskDB:
                     "WHERE task_id = ?",
                     (time.time(), task_id)
                 )
+
+    # ---------- 启动复位 ----------
+
+    def reset_stale_running_tasks(self) -> int:
+        """
+        把所有停在 running 的任务标记为 interrupted，返回受影响的行数。
+
+        进程被强杀或崩溃时任务状态会永久停在 running，之后 `list` 一直显示
+        running，用户无法分辨"还在跑"和"早就死了"。每次启动时复位一次。
+
+        前提：CLI 是单任务模型（同一时刻只跑一个任务），因此不存在"另一个
+        进程正在跑这个任务"的情况。
+        """
+        with self._write_lock:
+            with self._connect() as conn:
+                cur = conn.execute(
+                    "UPDATE tasks SET status = ?, updated_at = ? WHERE status = ?",
+                    (TaskStatus.INTERRUPTED.value, time.time(),
+                     TaskStatus.RUNNING.value)
+                )
+                return cur.rowcount
 
     def delete_task(self, task_id: str) -> None:
         with self._write_lock:

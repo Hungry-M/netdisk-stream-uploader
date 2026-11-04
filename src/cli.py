@@ -107,10 +107,28 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
         raise
 
 
+def _reset_stale_tasks() -> None:
+    """把上次异常退出遗留的 running 任务标记为 interrupted。
+
+    数据库打不开也不该挡住命令本身，因此这里吞掉异常只记日志。
+    """
+    try:
+        db = TaskDB()
+        stale = db.reset_stale_running_tasks()
+    except Exception as e:
+        logger.warning(f"检查遗留任务状态失败: {e}")
+        return
+    if stale:
+        click.echo(
+            f"[CLEAN] {stale} 个上次中断的任务已标记为 interrupted，"
+            f"可用 `resume <task_id>` 继续"
+        )
+
+
 @click.group()
 def cli():
     """Netdisk Stream Uploader - 命令行工具"""
-    pass
+    _reset_stale_tasks()
 
 
 @cli.command()

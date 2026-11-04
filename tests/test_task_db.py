@@ -39,3 +39,24 @@ def test_delete_task_cascades_volumes(temp_db):
     temp_db.delete_task("t3")
     assert temp_db.get_task("t3") is None
     assert temp_db.get_all_volumes("t3") == []
+
+
+def test_reset_stale_running_tasks(temp_db):
+    """残留的 running 应被复位成 interrupted，其它状态不受影响"""
+    temp_db.create_task("r1", "/src", ["a.txt"], "/apps", "arch", 1024)
+    temp_db.create_task("r2", "/src", ["a.txt"], "/apps", "arch", 1024)
+    temp_db.create_task("r3", "/src", ["a.txt"], "/apps", "arch", 1024)
+
+    temp_db.update_task_status("r1", TaskStatus.RUNNING)
+    temp_db.update_task_status("r2", TaskStatus.RUNNING)
+    temp_db.update_task_status("r3", TaskStatus.COMPLETED)
+
+    assert temp_db.reset_stale_running_tasks() == 2
+
+    assert temp_db.get_task("r1")["status"] == TaskStatus.INTERRUPTED.value
+    assert temp_db.get_task("r2")["status"] == TaskStatus.INTERRUPTED.value
+    # 已完成的任务不能被误改
+    assert temp_db.get_task("r3")["status"] == TaskStatus.COMPLETED.value
+
+    # 幂等：再次调用没有 running 可改
+    assert temp_db.reset_stale_running_tasks() == 0
