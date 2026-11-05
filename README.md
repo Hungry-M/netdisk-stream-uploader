@@ -52,6 +52,17 @@ pip install -r requirements.txt
 
 Python 3.10 or newer is required.
 
+## Why you need your own app credentials
+
+This is a **local client that runs no server of its own**: files go straight from your machine to your netdisk, with no third party in between. Two consequences follow:
+
+- **Nobody can see your data** — no relay, no logs, no backend;
+- **The author cannot hold credentials for you** — that would mean operating your account under someone else's identity, with every upload counted against their quota, their app review, and their record of violations.
+
+So each user registers their own app once. It is free; the only cost is a one-time identity verification (about 10 minutes).
+
+> Do not use an AppKey / SecretKey handed to you by someone else. It puts your files under their app quota, and lets them switch it off whenever they like.
+
 ## First run
 
 ```bash
