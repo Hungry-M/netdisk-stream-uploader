@@ -18,10 +18,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from src.i18n import _
 from src.gui.theme import apply_theme, apply_window_effects
 from src.gui.viewmodel import TaskListViewModel
 
-COLUMNS = ["任务 ID", "名称", "状态", "进度", "目标"]
+COLUMNS = [_("任务 ID"), _("名称"), _("状态"), _("进度"), _("目标")]
 
 
 class TaskTableModel(QStandardItemModel):
@@ -51,7 +52,7 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         self._dark = apply_theme(app) if app else False
 
-        self.setWindowTitle("StreamPack — 分卷流式网盘上传")
+        self.setWindowTitle("StreamPack — " + _("分卷流式网盘上传"))
         self.resize(920, 560)
 
         central = QWidget()
@@ -77,10 +78,10 @@ class MainWindow(QMainWindow):
 
         buttons = QHBoxLayout()
         buttons.setSpacing(8)
-        self.btn_refresh = QPushButton("刷新")
-        self.btn_resume = QPushButton("续传")
-        self.btn_volumes = QPushButton("查看分卷")
-        self.btn_delete = QPushButton("删除记录")
+        self.btn_refresh = QPushButton(_("刷新"))
+        self.btn_resume = QPushButton(_("续传"))
+        self.btn_volumes = QPushButton(_("查看分卷"))
+        self.btn_delete = QPushButton(_("删除记录"))
 
         for btn, pixmap in (
             (self.btn_refresh, QStyle.StandardPixmap.SP_BrowserReload),
@@ -125,7 +126,7 @@ class MainWindow(QMainWindow):
         if counts:
             text = " · ".join(f"{label} {count}" for label, count in sorted(counts.items()))
         else:
-            text = "暂无任务"
+            text = _("暂无任务")
         self.status.setText(text)
 
     def selected_task_id(self) -> Optional[str]:
@@ -139,11 +140,11 @@ class MainWindow(QMainWindow):
     def delete_selected(self) -> None:
         task_id = self.selected_task_id()
         if not task_id:
-            self._append_log("先选一个任务")
+            self._append_log(_("先选一个任务"))
             return
         answer = QMessageBox.question(
-            self, "删除记录",
-            f"删除任务 {task_id} 的本地记录？\n（不影响已上传到网盘的文件）",
+            self, _("删除记录"),
+            _("删除任务 {0} 的本地记录？\n（不影响已上传到网盘的文件）").format(task_id),
         )
         if answer != QMessageBox.Yes:
             return
@@ -154,11 +155,11 @@ class MainWindow(QMainWindow):
     def show_volumes(self) -> None:
         task_id = self.selected_task_id()
         if not task_id:
-            self._append_log("先选一个任务")
+            self._append_log(_("先选一个任务"))
             return
         volumes = self.vm.volumes(task_id)
         if not volumes:
-            QMessageBox.information(self, "分卷", "该任务还没有分卷记录")
+            QMessageBox.information(self, _("分卷"), _("该任务还没有分卷记录"))
             return
 
         lines = [
@@ -167,15 +168,15 @@ class MainWindow(QMainWindow):
             f"{(v.md5 or '-')[:8]}"
             for v in volumes
         ]
-        QMessageBox.information(self, f"分卷 · {task_id}", "\n".join(lines[:40]))
+        QMessageBox.information(self, _("分卷") + f" · {task_id}", "\n".join(lines[:40]))
 
     def resume_selected(self) -> None:
         task_id = self.selected_task_id()
         if not task_id:
-            self._append_log("先选一个任务")
+            self._append_log(_("先选一个任务"))
             return
         if self._process is not None and self._process.state() != QProcess.NotRunning:
-            self._append_log("已有任务在运行，等它结束")
+            self._append_log(_("已有任务在运行，等它结束"))
             return
         self._run_cli(["resume", task_id])
 
@@ -196,7 +197,7 @@ class MainWindow(QMainWindow):
         self._append_log(data.rstrip())
 
     def _on_finished(self, code: int, _status) -> None:
-        self._append_log(f"[进程结束，退出码 {code}]")
+        self._append_log(_("[进程结束，退出码 {0}]").format(code))
         self.refresh()
 
     def _append_log(self, text: str) -> None:

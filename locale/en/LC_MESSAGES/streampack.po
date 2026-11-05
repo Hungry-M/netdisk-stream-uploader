@@ -1,0 +1,87 @@
+# StreamPack — English translation
+# 源字符串是中文（代码里的原文），这里给出英文。
+# 修改后运行：python scripts/build_mo.py
+msgid ""
+msgstr ""
+"Project-Id-Version: StreamPack 0.6\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+# --- 表格列 ---
+msgid "任务 ID"
+msgstr "Task ID"
+
+msgid "名称"
+msgstr "Name"
+
+msgid "状态"
+msgstr "Status"
+
+msgid "进度"
+msgstr "Progress"
+
+msgid "目标"
+msgstr "Target"
+
+# --- 窗口与按钮 ---
+msgid "分卷流式网盘上传"
+msgstr "Streaming volume uploads"
+
+msgid "刷新"
+msgstr "Refresh"
+
+msgid "续传"
+msgstr "Resume"
+
+msgid "查看分卷"
+msgstr "Volumes"
+
+msgid "删除记录"
+msgstr "Delete"
+
+msgid "分卷"
+msgstr "Volumes"
+
+# --- 提示 ---
+msgid "先选一个任务"
+msgstr "Select a task first"
+
+msgid "已有任务在运行，等它结束"
+msgstr "Another task is running; wait for it to finish"
+
+msgid "暂无任务"
+msgstr "No tasks"
+
+msgid "该任务还没有分卷记录"
+msgstr "This task has no volume records yet"
+
+msgid "删除任务 {0} 的本地记录？\n（不影响已上传到网盘的文件）"
+msgstr "Delete the local record for task {0}?\n(Already-uploaded files are untouched)"
+
+msgid "[进程结束，退出码 {0}]"
+msgstr "[process exited with code {0}]"
+
+# --- 任务状态 ---
+msgid "待开始"
+msgstr "Pending"
+
+msgid "进行中"
+msgstr "Running"
+
+msgid "已完成"
+msgstr "Completed"
+
+msgid "失败"
+msgstr "Failed"
+
+msgid "部分完成"
+msgstr "Partial"
+
+msgid "已暂停"
+msgstr "Paused"
+
+msgid "已中断"
+msgstr "Interrupted"

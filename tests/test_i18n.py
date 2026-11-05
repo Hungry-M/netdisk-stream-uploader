@@ -60,6 +60,18 @@ def test_available_languages_includes_supported():
     assert set(langs) <= set(i18n.SUPPORTED)
 
 
+def test_shipped_english_catalog():
+    """仓库里带编译好的英文目录，界面切 en 必须真的翻译"""
+    mo = i18n.LOCALE_DIR / "en" / "LC_MESSAGES" / "streampack.mo"
+    if not mo.exists():
+        pytest.skip("未构建 en 目录（python scripts/build_mo.py）")
+
+    assert i18n.set_language("en") == "en"
+    assert i18n._("刷新") == "Refresh"
+    assert i18n._("已中断") == "Interrupted"
+    assert i18n._("任务 ID") == "Task ID"
+
+
 def test_translated_catalog_is_used_when_present(tmp_path, monkeypatch):
     """真的放一个 .mo 进去，确认 gettext 生效"""
     msgfmt = pytest.importorskip("msgfmt")  # 没有工具链就跳过

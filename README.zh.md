@@ -214,6 +214,26 @@ set STREAMPACK_MAX_UPLOAD_RETRIES=1        # Windows
 export STREAMPACK_MAX_UPLOAD_RETRIES=1     # Linux / macOS
 ```
 
+## 多语言
+
+界面提供中英文，三种切换方式：
+
+```bash
+python main.py --lang en --gui          # 单次
+python main.py config set language en   # 持久（写进配置文件）
+set STREAMPACK_LANG=en                  # 环境变量（Windows，临时）
+```
+
+优先级：`--lang` > `STREAMPACK_LANG` > 配置项 `language` > 系统区域。`language` 默认 `auto`，按系统区域判断。
+
+翻译的源字符串就是代码里的中文原文，英文目录在 `locale/en/LC_MESSAGES/streampack.po`。改完执行：
+
+```bash
+python scripts/build_mo.py     # .po → .mo，纯标准库实现，不需要 gettext 工具链
+```
+
+新增语言：把 `locale/en` 整个复制成 `locale/<lang>`，翻译 `.po` 后重新编译，再把语言代码加进 `src/i18n.py` 的 `SUPPORTED`。
+
 ## 常见问题
 
 **授权时报 `invalid_client`**
@@ -273,7 +293,8 @@ cat arch.part*.zip > arch.zip
 - [x] AES-256 加密归档
 - [x] 存储后端接口（`StorageProvider`），附本地目录实现
 - [x] 图形界面（PySide6，基础版：任务列表 / 续传 / 分卷明细 / 日志）
-- [ ] 多语言支持（gettext）
+- [x] 多语言（gettext）：界面中英文可用
+- [ ] CLI 提示语抽取到 gettext
 - [ ] 第二个真实网盘后端（接口已就位，缺账号验证）
 - [ ] 7z —— 需要能随机访问的容器，与流式生成冲突，暂缓
 

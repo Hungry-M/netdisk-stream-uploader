@@ -54,12 +54,23 @@ def _system_language() -> str:
 
 
 def available_languages() -> List[str]:
-    """列出支持的语言；有翻译目录的排在前面。"""
-    installed = [
-        d.name for d in LOCALE_DIR.iterdir()
-        if d.is_dir() and (d / "LC_MESSAGES").is_dir()
-    ] if LOCALE_DIR.is_dir() else []
-    return [lang for lang in SUPPORTED if lang in installed] or list(SUPPORTED)
+    """
+    支持的语言。
+
+    "zh" 是源语言，不需要翻译目录也能工作，所以一律列出；
+    其它语言只在真的有 .mo 时才算可用。
+    """
+    installed = set()
+    if LOCALE_DIR.is_dir():
+        for d in LOCALE_DIR.iterdir():
+            if d.is_dir() and (d / "LC_MESSAGES" / f"{DOMAIN}.mo").is_file():
+                installed.add(d.name)
+
+    result = []
+    for lang in SUPPORTED:
+        if lang == "zh" or lang in installed:
+            result.append(lang)
+    return result
 
 
 def set_language(lang: Optional[str] = None) -> str:

@@ -214,6 +214,26 @@ export STREAMPACK_MAX_UPLOAD_RETRIES=1     # Linux / macOS
 set STREAMPACK_MAX_UPLOAD_RETRIES=1        # Windows
 ```
 
+## Language
+
+The interface ships in Chinese and English. Three ways to switch:
+
+```bash
+python main.py --lang en --gui          # one run
+python main.py config set language en   # persist it
+export STREAMPACK_LANG=en               # environment variable
+```
+
+Priority: `--lang` > `STREAMPACK_LANG` > the `language` config option > system locale. `language` defaults to `auto`.
+
+The source strings are the Chinese text in the code; the English catalogue lives in `locale/en/LC_MESSAGES/streampack.po`. After editing it:
+
+```bash
+python scripts/build_mo.py     # .po → .mo, pure stdlib, no gettext toolchain needed
+```
+
+Adding a language: copy `locale/en` to `locale/<lang>`, translate the `.po`, rebuild, then add the code to `SUPPORTED` in `src/i18n.py`.
+
 ## FAQ
 
 **`invalid_client` during authorization**
@@ -273,7 +293,8 @@ The password is stored nowhere (the database only keeps a PBKDF2 verifier for co
 - [x] AES-256 encrypted archives
 - [x] `StorageProvider` interface, with a local-directory implementation
 - [x] Graphical interface (PySide6, basic: task list / resume / volume details / log)
-- [ ] Multi-language support (gettext)
+- [x] Multi-language (gettext): Chinese and English UI
+- [ ] Extract the CLI messages into gettext
 - [ ] A second real netdisk backend (interface ready, no account to verify against)
 - [ ] 7z — needs a randomly-addressable container, which conflicts with streaming; deferred
 
