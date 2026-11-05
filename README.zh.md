@@ -246,6 +246,26 @@ python scripts/build_mo.py     # .po → .mo，纯标准库实现，不需要 ge
 
 新增语言：把 `locale/en` 整个复制成 `locale/<lang>`，翻译 `.po` 后重新编译，再把语言代码加进 `src/i18n.py` 的 `SUPPORTED`。
 
+## 打包
+
+```powershell
+pip install pyinstaller
+pwsh -File scripts/build_release.ps1
+```
+
+产出：
+
+| 路径 | 用途 |
+|:---|:---|
+| `dist/StreamPack/` | 可直接运行，免安装 |
+| `dist/StreamPack-<版本>-win64.zip` | 分发给别人用 |
+
+目录里有两个入口：`streampack.exe`（命令行，保留控制台看日志）和 `streampack-gui.exe`（图形界面，无控制台窗口）。两者共用 `_internal/` 里的依赖。
+
+推 `v*` tag 时，GitHub Actions 会自动跑测试、打包并建 Release（见 `.github/workflows/build.yml`），不需要在本地装任何东西。
+
+> 这是免安装的绿色包，不是 MSI 安装程序。要做真正的安装包，需要用 Inno Setup 或 NSIS 再包一层。
+
 ## 常见问题
 
 **授权时报 `invalid_client`**

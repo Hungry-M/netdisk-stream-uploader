@@ -246,6 +246,26 @@ python scripts/build_mo.py     # .po → .mo, pure stdlib, no gettext toolchain 
 
 Adding a language: copy `locale/en` to `locale/<lang>`, translate the `.po`, rebuild, then add the code to `SUPPORTED` in `src/i18n.py`.
 
+## Packaging
+
+```powershell
+pip install pyinstaller
+pwsh -File scripts/build_release.ps1
+```
+
+Output:
+
+| Path | Purpose |
+|:---|:---|
+| `dist/StreamPack/` | Runnable as-is, no installation |
+| `dist/StreamPack-<version>-win64.zip` | What you hand to other people |
+
+The folder holds two entry points: `streampack.exe` (command line, keeps the console so logs are visible) and `streampack-gui.exe` (GUI, no console window). Both share the dependencies in `_internal/`.
+
+Pushing a `v*` tag makes GitHub Actions run the tests, build the executables and create a release (`.github/workflows/build.yml`) — nothing needs to be installed locally.
+
+> This is a portable folder, not an MSI installer. A real installer would need Inno Setup or NSIS wrapped around it.
+
 ## FAQ
 
 **`invalid_client` during authorization**

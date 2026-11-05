@@ -1,0 +1,61 @@
+name: build
+
+# 推 tag 时自动打包并建 Release；也可以手动触发只产 artifact
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write        # 建 Release 需要
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-gui.txt
+          pip install pyinstaller
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Build executables
+        run: python -m PyInstaller packaging/streampack.spec --noconfirm --clean
+
+      - name: Smoke test exe
+        run: |
+          .\dist\StreamPack\streampack.exe --help
+          .\dist\StreamPack\streampack.exe --lang en config list
+
+      - name: Package
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if (-not $tag) { $tag = "dev" }
+          Compress-Archive -Path dist/StreamPack -DestinationPath "dist/StreamPack-$tag-win64.zip"
+          Get-Item dist/*.zip | Select-Object Name, Length
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: StreamPack-${{ github.ref_name }}
+          path: dist/*.zip
+          retention-days: 30
+
+      - name: Create release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false

@@ -15,6 +15,10 @@ credentials.json
 netdisk_temp/
 _rehearsal/
 
+# 打包产物
+build/
+dist/
+
 # 开发者本地备份
 *.backup
 *.py.backup
