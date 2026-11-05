@@ -330,8 +330,8 @@ def cli():
 @click.option('--source', '-s', required=True, help=_('源目录路径'))
 @click.option('--files', '-f', required=True,
               help=_('要压缩的文件列表，逗号分隔。用 "." 表示 source 下全部'))
-@click.option('--remote', '-r', default='/apps/StreamPack',
-              help=_('网盘目标目录（默认 /apps/StreamPack）'))
+@click.option('--remote', '-r', default=None,
+              help=_('网盘目标目录，默认取配置项 remote_root（通常是 /apps/<你的应用名>）'))
 @click.option('--name', '-n', required=True, help=_('压缩包基本名称（不含扩展名）'))
 @click.option('--volume-size', '-v', default=DEFAULT_VOLUME_SIZE,
               help=_('分卷大小（字节），默认 1GB'))
@@ -354,6 +354,11 @@ def upload(source, files, remote, name, volume_size, resume, ext, backpressure,
     if not source_dir.exists():
         click.echo(_f("[ERR] 源目录 {0} 不存在", source_dir), err=True)
         return
+
+    # 目标目录默认来自配置：可写目录由「应用名称」决定，换个应用就得换路径
+    settings = build_settings()
+    if not remote:
+        remote = settings.remote_root or "/apps/StreamPack"
 
     task_id = make_task_id(str(source_dir), name, remote, volume_size, file_list)
     click.echo(_f("任务 ID: {0}", task_id))

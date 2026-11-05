@@ -206,6 +206,7 @@ python main.py config path                      # 显示配置文件位置
 | `retry_backoff_seconds` | 2.0 | 首次重试的等待秒数，之后按 2 的幂递增 |
 | `provider` | `baidu` | 存储后端：`baidu` 或 `local` |
 | `local_rehearsal_dir` | `./_rehearsal` | `provider=local` 时的落盘根目录 |
+| `remote_root` | `/apps/StreamPack` | 默认上传目录，**改成你自己的应用名** |
 
 也可以临时用环境变量覆盖，不改文件：
 
@@ -242,7 +243,13 @@ python scripts/build_mo.py     # .po → .mo，纯标准库实现，不需要 ge
 
 **上传返回 404 或 403**
 
-目标目录不存在或没有权限。新版开放平台不再提供单独的「应用目录」字段，可写目录固定为 `/apps/{应用名称}`，且**应用名称必须是英文**——中文名会导致路径异常。先用 `--remote /apps/<你的应用名>` 确认，再考虑改默认值。
+目标目录不存在或没有权限。新版开放平台不再提供单独的「应用目录」字段，可写目录固定为 `/apps/{应用名称}`，且**应用名称必须是英文**——中文名会导致路径异常。
+
+如果你用的是别人开源的程序、自己注册了应用，默认的 `/apps/StreamPack` 是作者的应用名，必然对不上。改一次就可以：
+
+```bash
+python main.py config set remote_root /apps/你的应用名
+```
 
 **授权码无效（`invalid_grant`）**
 

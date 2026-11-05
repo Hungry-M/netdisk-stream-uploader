@@ -98,8 +98,8 @@ msgid "要压缩的文件列表，逗号分隔。用 \".\" 表示 source 下全�
 msgstr "Files to archive, comma separated. Use \".\" for everything under the source directory"
 
 #: src\cli.py:334
-msgid "网盘目标目录（默认 /apps/StreamPack）"
-msgstr "Target directory on the netdisk (default /apps/StreamPack)"
+msgid "网盘目标目录，默认取配置项 remote_root（通常是 /apps/<你的应用名>）"
+msgstr "Target directory; defaults to the remote_root config option (usually /apps/<your app name>)"
 
 #: src\cli.py:335
 msgid "压缩包基本名称（不含扩展名）"
@@ -141,195 +141,195 @@ msgstr "Create and run an upload task. If the task exists, resume it."
 msgid "[ERR] 源目录 {0} 不存在"
 msgstr "[ERR] Source directory {0} does not exist"
 
-#: src\cli.py:359
+#: src\cli.py:364
 msgid "任务 ID: {0}"
 msgstr "Task ID: {0}"
 
-#: src\cli.py:375
+#: src\cli.py:380
 msgid "任务 {0} 已完成。如需重做请先 delete。"
 msgstr "Task {0} is already completed. Run delete first to redo it."
 
-#: src\cli.py:377
+#: src\cli.py:382
 msgid "发现任务 {0}（{1}），将续传/重跑"
 msgstr "Found task {0} ({1}); resuming"
 
-#: src\cli.py:401
+#: src\cli.py:406
 msgid "加密任务的密码（也可用环境变量 STREAMPACK_PASSWORD；缺省时交互输入）"
 msgstr "Password for the encrypted task (or STREAMPACK_PASSWORD; prompted if missing)"
 
-#: src\cli.py:403
+#: src\cli.py:408
 msgid "存储后端；默认取配置项 provider（baidu）"
 msgstr "Storage backend; defaults to the provider config option (baidu)"
 
-#: src\cli.py:404
+#: src\cli.py:409
 msgid "恢复中断的上传任务"
 msgstr "Resume an interrupted upload task"
 
-#: src\cli.py:409
+#: src\cli.py:414
 msgid "[ERR] 任务 {0} 不存在"
 msgstr "[ERR] Task {0} does not exist"
 
-#: src\cli.py:412
+#: src\cli.py:417
 msgid "任务 {0} 已完成，无需恢复"
 msgstr "Task {0} is already completed; nothing to resume"
 
-#: src\cli.py:414
+#: src\cli.py:419
 msgid "已上传分卷: {0}"
 msgstr "Uploaded volumes: {0}"
 
-#: src\cli.py:415
+#: src\cli.py:420
 msgid "待重试分卷: {0}"
 msgstr "Volumes to retry: {0}"
 
-#: src\cli.py:421
+#: src\cli.py:426
 msgid "列出所有任务"
 msgstr "List all tasks"
 
-#: src\cli.py:426
+#: src\cli.py:431
 msgid "没有任务记录"
 msgstr "No task records"
 
-#: src\cli.py:430
+#: src\cli.py:435
 msgid "{0} | {1} | 分卷 {2}/{3} | {4}"
 msgstr "{0} | {1} | volumes {2}/{3} | {4}"
 
-#: src\cli.py:436
+#: src\cli.py:441
 msgid "查看任务详情"
 msgstr "Show task details"
 
-#: src\cli.py:445
+#: src\cli.py:450
 msgid "状态: {0}"
 msgstr "Status: {0}"
 
-#: src\cli.py:446
+#: src\cli.py:451
 msgid "源目录: {0}"
 msgstr "Source: {0}"
 
-#: src\cli.py:447
+#: src\cli.py:452
 msgid "文件数: {0}"
 msgstr "Files: {0}"
 
-#: src\cli.py:448
+#: src\cli.py:453
 msgid "目标: {0}"
 msgstr "Target: {0}"
 
-#: src\cli.py:449
+#: src\cli.py:454
 msgid "分卷大小: {0} MB"
 msgstr "Volume size: {0} MB"
 
-#: src\cli.py:450
+#: src\cli.py:455
 msgid "总卷数: {0}"
 msgstr "Total volumes: {0}"
 
-#: src\cli.py:451
+#: src\cli.py:456
 msgid "已完成: {0}"
 msgstr "Completed: {0}"
 
-#: src\cli.py:453
+#: src\cli.py:458
 msgid "错误: {0}"
 msgstr "Error: {0}"
 
-#: src\cli.py:456
+#: src\cli.py:461
 msgid "\n分卷状态:"
 msgstr "\nVolume status:"
 
-#: src\cli.py:458
+#: src\cli.py:463
 msgid "  {0:4d} | {1} | {2}"
 msgstr "  {0:4d} | {1} | {2}"
 
-#: src\cli.py:463
+#: src\cli.py:468
 msgid "确认删除，无需二次确认"
 msgstr "Delete without asking for confirmation"
 
-#: src\cli.py:464
+#: src\cli.py:469
 msgid "删除任务记录（不影响已上传文件）"
 msgstr "Delete a task record (uploaded files are untouched)"
 
-#: src\cli.py:468
+#: src\cli.py:473
 msgid "确定要删除任务 {0} 吗？"
 msgstr "Delete task {0}?"
 
-#: src\cli.py:470
+#: src\cli.py:475
 msgid "任务 {0} 已删除"
 msgstr "Task {0} deleted"
 
-#: src\cli.py:474
+#: src\cli.py:479
 msgid "查看与修改用户配置（~/.netdisk_uploader/config.json）"
 msgstr "View and change user configuration (~/.netdisk_uploader/config.json)"
 
-#: src\cli.py:479
+#: src\cli.py:484
 msgid "显示配置文件位置"
 msgstr "Show the config file location"
 
-#: src\cli.py:483
+#: src\cli.py:488
 msgid "已存在"
 msgstr "exists"
 
-#: src\cli.py:483
+#: src\cli.py:488
 msgid "尚未创建（全部使用默认值）"
 msgstr "not created yet (all defaults)"
 
-#: src\cli.py:487
+#: src\cli.py:492
 msgid "列出所有配置项及其来源"
 msgstr "List every option and where its value comes from"
 
-#: src\cli.py:501
+#: src\cli.py:506
 msgid "{0:<{1}}  {2:<{3}}  {4}"
 msgstr "{0:<{1}}  {2:<{3}}  {4}"
 
-#: src\cli.py:501
+#: src\cli.py:506
 msgid "配置项"
 msgstr "Option"
 
-#: src\cli.py:502
+#: src\cli.py:507
 msgid "值"
 msgstr "Value"
 
-#: src\cli.py:502
+#: src\cli.py:507
 msgid "来源"
 msgstr "Source"
 
-#: src\cli.py:508
+#: src\cli.py:513
 msgid "来源：env = 环境变量 {0}<字段名>，file = 配置文件，default = 代码默认值"
 msgstr "Source: env = {0}<FIELD NAME>, file = config file, default = code default"
 
-#: src\cli.py:514
+#: src\cli.py:519
 msgid "读取一项配置的生效值"
 msgstr "Print the effective value of one option"
 
-#: src\cli.py:517
+#: src\cli.py:522
 msgid "[ERR] 未知配置项: {0}（用 `config list` 查看可选项）"
 msgstr "[ERR] Unknown option: {0} (see `config list`)"
 
-#: src\cli.py:531
+#: src\cli.py:536
 msgid "修改一项配置（写入配置文件）"
 msgstr "Change one option (written to the config file)"
 
-#: src\cli.py:539
+#: src\cli.py:544
 msgid "[ERR] {0}"
 msgstr "[ERR] {0}"
 
-#: src\cli.py:542
+#: src\cli.py:547
 msgid "[ERR] 取值不合法: {0}"
 msgstr "[ERR] Invalid value: {0}"
 
-#: src\cli.py:544
+#: src\cli.py:549
 msgid "[OK] {0} = {1}"
 msgstr "[OK] {0} = {1}"
 
-#: src\cli.py:545
+#: src\cli.py:550
 msgid "     已写入 {0}"
 msgstr "     written to {0}"
 
-#: src\cli.py:550
+#: src\cli.py:555
 msgid "删除一项配置，回到默认值"
 msgstr "Remove one option and fall back to its default"
 
-#: src\cli.py:553
+#: src\cli.py:558
 msgid "[ERR] 未知配置项: {0}"
 msgstr "[ERR] Unknown option: {0}"
 
-#: src\cli.py:556
+#: src\cli.py:561
 msgid "[OK] {0} 已恢复默认值（{1}）"
 msgstr "[OK] {0} restored to its default ({1})"
 

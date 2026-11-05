@@ -206,6 +206,7 @@ Options:
 | `retry_backoff_seconds` | 2.0 | Delay before the first retry; doubles each time |
 | `provider` | `baidu` | Storage backend: `baidu` or `local` |
 | `local_rehearsal_dir` | `./_rehearsal` | Root directory for `provider=local` |
+| `remote_root` | `/apps/StreamPack` | Default upload directory — **change it to your own app name** |
 
 Any option can also be overridden per-session with an environment variable:
 
@@ -242,7 +243,13 @@ Almost always a mangled SecretKey. The common cause is an invisible control char
 
 **Upload returns 404 or 403**
 
-The target directory does not exist or is not writable. The current console no longer has a separate "app directory" field: writable paths are fixed to `/apps/{app name}`, and the **app name must be ASCII** — a Chinese name breaks the path. Confirm with `--remote /apps/<your-app-name>` first.
+The target directory does not exist or is not writable. The current console no longer has a separate "app directory" field: writable paths are fixed to `/apps/{app name}`, and the **app name must be ASCII** — a Chinese name breaks the path.
+
+If you are using someone else's open-source tool with your own app, the default `/apps/StreamPack` is the author's app name and will not match yours. Set it once:
+
+```bash
+python main.py config set remote_root /apps/your-app-name
+```
 
 **`invalid_grant` when exchanging the code**
 

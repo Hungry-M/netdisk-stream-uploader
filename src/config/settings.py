@@ -65,6 +65,11 @@ class ResourceSettings:
     # provider=local 时的落盘根目录
     local_rehearsal_dir: str = "./_rehearsal"
 
+    # 默认的网盘目标目录。
+    # 注意：可写目录由「应用名称」决定，固定是 /apps/<应用名>。
+    # 用别人的程序、自己注册应用时，这里必须改成自己的应用名，否则会 404。
+    remote_root: str = "/apps/StreamPack"
+
     # ----- 界面与语言 -----
     # "auto" 按系统区域判断；也可写 "zh" / "en"
     language: str = "auto"
