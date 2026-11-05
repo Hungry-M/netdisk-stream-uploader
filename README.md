@@ -95,6 +95,16 @@ export STREAMPACK_PASSWORD='your-pass'
 python main.py upload -s /data -f "." -r /apps/StreamPack -n backup --password "$STREAMPACK_PASSWORD"
 ```
 
+### Offline rehearsal
+
+Switch the backend to `local` and volumes are written to a local directory instead of the netdisk — no network, no quota, so you can check the split before committing to an upload.
+
+```bash
+python main.py upload -s /data -f "." -r /backup -n backup -v 1048576 --provider local
+```
+
+Output lands in `./_rehearsal/backup/` (change it with `config set local_rehearsal_dir`). The same works for rehearsing a resume offline: Ctrl+C halfway, then `resume <task_id> --provider local`.
+
 ### Resume an interrupted task
 
 ```bash
@@ -185,6 +195,8 @@ Options:
 | `max_pending_volumes` | None | Backpressure cap (None = disabled; the CLI flag wins) |
 | `max_upload_retries` | 3 | Max attempts per volume, including the first |
 | `retry_backoff_seconds` | 2.0 | Delay before the first retry; doubles each time |
+| `provider` | `baidu` | Storage backend: `baidu` or `local` |
+| `local_rehearsal_dir` | `./_rehearsal` | Root directory for `provider=local` |
 
 Any option can also be overridden per-session with an environment variable:
 
@@ -250,9 +262,10 @@ The password is stored nowhere (the database only keeps a PBKDF2 verifier for co
 - [x] MD5 checksums for volumes, verified per volume on resume
 - [x] `__streampack__.json` manifest embedded in the archive
 - [x] AES-256 encrypted archives
+- [x] `StorageProvider` interface, with a local-directory implementation
 - [ ] Graphical interface (PySide6)
 - [ ] Multi-language support (gettext)
-- [ ] Additional netdisk providers (via a `StorageProvider` interface)
+- [ ] A second real netdisk backend (interface ready, no account to verify against)
 - [ ] 7z — needs a randomly-addressable container, which conflicts with streaming; deferred
 
 > RAR is out of scope: the compression algorithm is proprietary, the vendor only open-sources extraction and forbids using it to create archives, and no Python writer exists.

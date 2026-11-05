@@ -58,6 +58,13 @@ class ResourceSettings:
     # 设为 0 则立即重试，测试里常用。
     retry_backoff_seconds: float = 2.0
 
+    # ----- 存储后端 -----
+    # "baidu" 或 "local"。local 把分卷写到本地目录，用于离线预演/自测。
+    provider: str = "baidu"
+
+    # provider=local 时的落盘根目录
+    local_rehearsal_dir: str = "./_rehearsal"
+
     # ----- 通用配置 -----
     # 临时文件前缀（便于识别和清理）
     temp_file_prefix: str = "netdisk_upload_"

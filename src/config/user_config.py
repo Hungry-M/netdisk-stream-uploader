@@ -100,6 +100,8 @@ SPECS: Dict[str, Tuple[str, Any, str]] = {
     "min_free_disk_bytes": ("int", _parse_int, "磁盘剩余空间硬性下限（字节）"),
     "max_upload_retries": ("int", _parse_int, "单个分卷最大尝试次数（含首次）"),
     "retry_backoff_seconds": ("float", _parse_float, "首次重试等待秒数，之后按 2 的幂递增"),
+    "provider": ("str", _parse_str, "存储后端：baidu 或 local"),
+    "local_rehearsal_dir": ("str", _parse_str, "provider=local 时的落盘根目录"),
     "temp_file_prefix": ("str", _parse_str, "临时分卷文件名前缀"),
 }
 

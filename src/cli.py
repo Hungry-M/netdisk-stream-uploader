@@ -20,7 +20,7 @@ from src.core.compressor import (
     password_tag, VolumeInfo, VolumeMismatchError,
 )
 from src.core.uploader import VolumeUploader, UploadResult
-from src.baidu.client import BaiduClient
+from src.storage import available_providers, create_provider
 from src.database.task_db import TaskDB, TaskStatus
 
 logger = get_logger(__name__)
@@ -29,12 +29,26 @@ logger = get_logger(__name__)
 DEFAULT_VOLUME_SIZE = 1 * 1024 * 1024 * 1024
 
 
-def get_client() -> BaiduClient:
-    from src.config.credentials import load_credentials
-    creds = load_credentials()
-    client = BaiduClient(creds.client_id, creds.client_secret, creds.token_file)
-    client._get_access_token()
-    return client
+def _make_provider(name: Optional[str] = None):
+    """
+    构造存储后端。name 为空时取配置里的 provider（默认 baidu）。
+
+    local 后端把分卷写到本地目录，用于离线预演：不联网、不占配额，
+    也能用来验证分卷切分和续传逻辑。
+    """
+    settings = build_settings()
+    provider_name = (name or settings.provider or "baidu").strip().lower()
+
+    if provider_name == "local":
+        root = settings.local_rehearsal_dir
+        click.echo(f"[INFO] 使用本地后端，落盘目录: {root}")
+        provider = create_provider("local", root=root)
+        provider.authenticate(interactive=False)
+        return provider
+
+    provider = create_provider("baidu")
+    provider.authenticate(interactive=True)
+    return provider
 
 
 def make_task_id(source_dir: str, name: str, remote: str, volume_size: int,
@@ -187,7 +201,8 @@ def _resolve_password(task: dict, provided: Optional[str], task_id: str) -> Opti
 def _run_upload(task_id: str, task: dict, db: TaskDB,
                 backpressure: Optional[int] = None,
                 verify: str = 'full',
-                password: Optional[str] = None) -> None:
+                password: Optional[str] = None,
+                provider_name: Optional[str] = None) -> None:
     settings = build_settings()
     rm = ResourceManager(settings)
 
@@ -199,8 +214,8 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
     _verify_source(task, db, task_id, verify)
     pwd = _resolve_password(task, password, task_id)
 
-    baidu_client = get_client()
-    uploader = VolumeUploader(baidu_client, rm, db=db, task_id=task_id)
+    provider = _make_provider(provider_name)
+    uploader = VolumeUploader(provider, rm, db=db, task_id=task_id)
     uploader.remote_suffix = task.get('remote_suffix', '.zip')
 
     db.update_task_status(task_id, TaskStatus.RUNNING)
@@ -333,8 +348,10 @@ def cli():
               help='续传前校验：full=指纹+逐卷 MD5，stat=只比指纹，off=不校验')
 @click.option('--password', default=None,
               help='用 AES-256 加密归档。建议改用环境变量 STREAMPACK_PASSWORD，避免留在命令历史里')
+@click.option('--provider', type=click.Choice(available_providers()), default=None,
+              help='存储后端；默认取配置项 provider（baidu）。local 用于离线预演')
 def upload(source, files, remote, name, volume_size, resume, ext, backpressure,
-           verify, password):
+           verify, password, provider):
     """创建并执行上传任务。若任务已存在，将续传/重跑。"""
     file_list = [f.strip() for f in files.split(',')]
     source_dir = Path(source).resolve()
@@ -363,7 +380,7 @@ def upload(source, files, remote, name, volume_size, resume, ext, backpressure,
             return
         click.echo(f"发现任务 {task_id}（{status}），将续传/重跑")
         _run_upload(task_id, existing, db, backpressure=bp_limit,
-                    verify=verify, password=password)
+                    verify=verify, password=password, provider_name=provider)
         return
 
     entries = entries_payload(str(source_dir), file_list)
@@ -376,7 +393,7 @@ def upload(source, files, remote, name, volume_size, resume, ext, backpressure,
                    password_tag=password_tag(task_id, pwd) if pwd else None)
     task = db.get_task(task_id)
     _run_upload(task_id, task, db, backpressure=bp_limit,
-                verify=verify, password=password)
+                verify=verify, password=password, provider_name=provider)
 
 
 @cli.command()
@@ -386,7 +403,9 @@ def upload(source, files, remote, name, volume_size, resume, ext, backpressure,
               help='续传前校验：full=指纹+逐卷 MD5，stat=只比指纹，off=不校验')
 @click.option('--password', default=None,
               help='加密任务的密码（也可用环境变量 STREAMPACK_PASSWORD；缺省时交互输入）')
-def resume(task_id, verify, password):
+@click.option('--provider', type=click.Choice(available_providers()), default=None,
+              help='存储后端；默认取配置项 provider（baidu）')
+def resume(task_id, verify, password, provider):
     """恢复中断的上传任务"""
     db = TaskDB()
     task = db.get_task(task_id)
@@ -398,7 +417,8 @@ def resume(task_id, verify, password):
         return
     click.echo(f"已上传分卷: {db.get_completed_part_numbers(task_id)}")
     click.echo(f"待重试分卷: {db.get_failed_part_numbers(task_id)}")
-    _run_upload(task_id, task, db, backpressure=None, verify=verify, password=password)
+    _run_upload(task_id, task, db, backpressure=None, verify=verify,
+                password=password, provider_name=provider)
 
 
 @cli.command(name='list')

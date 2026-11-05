@@ -13,6 +13,7 @@ env/
 token.json
 credentials.json
 netdisk_temp/
+_rehearsal/
 
 # 开发者本地备份
 *.backup

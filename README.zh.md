@@ -95,6 +95,16 @@ export STREAMPACK_PASSWORD='your-pass'
 python main.py upload -s /data -f "." -r /apps/StreamPack -n backup --password "$STREAMPACK_PASSWORD"
 ```
 
+### 离线预演
+
+把后端换成 `local`，分卷写到本地目录而不是网盘：不联网、不占配额，可以先确认切分是否符合预期。
+
+```bash
+python main.py upload -s D:\data -f "." -r /backup -n backup -v 1048576 --provider local
+```
+
+结果落在 `./_rehearsal/backup/` 下（位置可用 `config set local_rehearsal_dir` 改）。同样的方式也能在断网时演练续传：跑到一半按 Ctrl+C，再 `resume <task_id> --provider local`。
+
 ### 断点续传
 
 ```bash
@@ -185,6 +195,8 @@ python main.py config path                      # 显示配置文件位置
 | `max_pending_volumes` | None | 背压上限（None = 不启用；命令行参数优先） |
 | `max_upload_retries` | 3 | 单个分卷的最大尝试次数（含首次） |
 | `retry_backoff_seconds` | 2.0 | 首次重试的等待秒数，之后按 2 的幂递增 |
+| `provider` | `baidu` | 存储后端：`baidu` 或 `local` |
+| `local_rehearsal_dir` | `./_rehearsal` | `provider=local` 时的落盘根目录 |
 
 也可以临时用环境变量覆盖，不改文件：
 
@@ -250,9 +262,10 @@ cat arch.part*.zip > arch.zip
 - [x] 分卷 MD5 落库，续传时逐卷校验
 - [x] 归档内置 `__streampack__.json` 清单
 - [x] AES-256 加密归档
+- [x] 存储后端接口（`StorageProvider`），附本地目录实现
 - [ ] 图形界面（PySide6）
 - [ ] 多语言支持（gettext）
-- [ ] 更多网盘后端（通过 `StorageProvider` 接口）
+- [ ] 第二个真实网盘后端（接口已就位，缺账号验证）
 - [ ] 7z —— 需要能随机访问的容器，与流式生成冲突，暂缓
 
 > RAR 不在计划内：压缩算法专有，官方只开源解压、禁止用于生成，Python 侧没有可用的写入实现。
