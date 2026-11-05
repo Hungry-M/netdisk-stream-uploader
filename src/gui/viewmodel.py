@@ -11,20 +11,23 @@ from typing import Dict, List, Optional
 from src.database.task_db import TaskDB, TaskStatus
 from src.i18n import _
 
-STATUS_LABELS = {
-    TaskStatus.PENDING.value: "待开始",
-    TaskStatus.RUNNING.value: "进行中",
-    TaskStatus.COMPLETED.value: "已完成",
-    TaskStatus.FAILED.value: "失败",
-    TaskStatus.PARTIAL.value: "部分完成",
-    TaskStatus.PAUSED.value: "已暂停",
-    TaskStatus.INTERRUPTED.value: "已中断",
-}
-
-
 def label_for(status: str) -> str:
-    """状态键 → 中文标签；未知状态原样返回，方便发现新值。"""
-    return _(STATUS_LABELS.get(status, status))
+    """
+    状态键 → 中文标签；未知状态原样返回，方便发现新增的状态值。
+
+    标签写成函数内的字面量而不是模块级常量：翻译要在运行时取（语言可能
+    切换），抽取脚本也只认 `_("字面量")` 这种形式。
+    """
+    labels = {
+        TaskStatus.PENDING.value: _("待开始"),
+        TaskStatus.RUNNING.value: _("进行中"),
+        TaskStatus.COMPLETED.value: _("已完成"),
+        TaskStatus.FAILED.value: _("失败"),
+        TaskStatus.PARTIAL.value: _("部分完成"),
+        TaskStatus.PAUSED.value: _("已暂停"),
+        TaskStatus.INTERRUPTED.value: _("已中断"),
+    }
+    return labels.get(status, status)
 
 
 @dataclass(frozen=True)

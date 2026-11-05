@@ -216,7 +216,7 @@ export STREAMPACK_MAX_UPLOAD_RETRIES=1     # Linux / macOS
 
 ## 多语言
 
-界面提供中英文，三种切换方式：
+命令行与图形界面都支持中英文，三种切换方式：
 
 ```bash
 python main.py --lang en --gui          # 单次
@@ -293,8 +293,8 @@ cat arch.part*.zip > arch.zip
 - [x] AES-256 加密归档
 - [x] 存储后端接口（`StorageProvider`），附本地目录实现
 - [x] 图形界面（PySide6，基础版：任务列表 / 续传 / 分卷明细 / 日志）
-- [x] 多语言（gettext）：界面中英文可用
-- [ ] CLI 提示语抽取到 gettext
+- [x] 多语言（gettext）：命令行与界面均已覆盖
+- [ ] 新增更多语言目录（当前只有 en）
 - [ ] 第二个真实网盘后端（接口已就位，缺账号验证）
 - [ ] 7z —— 需要能随机访问的容器，与流式生成冲突，暂缓
 

@@ -105,5 +105,16 @@ def _(message: str) -> str:
     return _translation.gettext(message)
 
 
+def _f(template: str, *args, **kwargs) -> str:
+    """
+    先翻译模板，再格式化。
+
+    用法：_f("[OK] 任务 {0} 完成", task_id)
+    把变量留在 .format 里，而不是写 f-string —— 否则 msgid 每次都不同，
+    翻译表永远匹配不上。
+    """
+    return _(template).format(*args, **kwargs)
+
+
 def ngettext(singular: str, plural: str, n: int) -> str:
     return _translation.ngettext(singular, plural, n)

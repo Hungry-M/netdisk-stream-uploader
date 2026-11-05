@@ -216,7 +216,7 @@ set STREAMPACK_MAX_UPLOAD_RETRIES=1        # Windows
 
 ## Language
 
-The interface ships in Chinese and English. Three ways to switch:
+Both the command line and the GUI ship in Chinese and English. Three ways to switch:
 
 ```bash
 python main.py --lang en --gui          # one run
@@ -293,8 +293,8 @@ The password is stored nowhere (the database only keeps a PBKDF2 verifier for co
 - [x] AES-256 encrypted archives
 - [x] `StorageProvider` interface, with a local-directory implementation
 - [x] Graphical interface (PySide6, basic: task list / resume / volume details / log)
-- [x] Multi-language (gettext): Chinese and English UI
-- [ ] Extract the CLI messages into gettext
+- [x] Multi-language (gettext): both CLI and GUI
+- [ ] More language catalogues (only `en` so far)
 - [ ] A second real netdisk backend (interface ready, no account to verify against)
 - [ ] 7z — needs a randomly-addressable container, which conflicts with streaming; deferred
 

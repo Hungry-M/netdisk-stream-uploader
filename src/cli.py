@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from src.logger import get_logger
+from src.i18n import _, _f
 from src.config.settings import ResourceSettings
 from src.config.user_config import (
     build_settings, config_path, effective_values, load_config,
@@ -71,20 +72,20 @@ def _print_diff(diff: dict, limit: int = 5) -> None:
     if not (added or removed or changed):
         return
 
-    click.echo("[DIFF] 源文件与任务创建时不一致：", err=True)
+    click.echo(_("[DIFF] 源文件与任务创建时不一致："), err=True)
     for item in added[:limit]:
-        click.echo(f"  + {item[0]}  ({item[1]} 字节)", err=True)
+        click.echo(_f("  + {0}  ({1} 字节)", item[0], item[1]), err=True)
     for item in removed[:limit]:
-        click.echo(f"  - {item[0]}  （已删除）", err=True)
+        click.echo(_f("  - {0}  （已删除）", item[0]), err=True)
     for name, kind, old, new in changed[:limit]:
         if kind == 'size':
-            click.echo(f"  ~ {name}  大小 {old} → {new}", err=True)
+            click.echo(_f("  ~ {0}  大小 {1} → {2}", name, old, new), err=True)
         else:
-            click.echo(f"  ~ {name}  mtime 变了", err=True)
+            click.echo(_f("  ~ {0}  mtime 变了", name), err=True)
 
-    for label, items in (("新增", added), ("删除", removed), ("改动", changed)):
+    for label, items in ((_("新增"), added), (_("删除"), removed), (_("改动"), changed)):
         if len(items) > limit:
-            click.echo(f"  … 另有 {len(items) - limit} 个{label}未列出", err=True)
+            click.echo(_f("  … 另有 {0} 个{1}未列出", len(items) - limit, label), err=True)
 
 
 def _verify_source(task: dict, db: TaskDB, task_id: str, verify: str) -> None:
@@ -105,7 +106,7 @@ def _verify_source(task: dict, db: TaskDB, task_id: str, verify: str) -> None:
         db.update_task_fingerprint(
             task_id, fingerprint_of(current), json.dumps(current)
         )
-        click.echo("[INFO] 该任务没有指纹基线，已按当前源文件补记；本次不做比对")
+        click.echo(_("[INFO] 该任务没有指纹基线，已按当前源文件补记；本次不做比对"))
         return
 
     if stored_fp == fingerprint_of(current):
@@ -118,9 +119,10 @@ def _verify_source(task: dict, db: TaskDB, task_id: str, verify: str) -> None:
 
     _print_diff(diff_entries(stored, current))
     click.echo(
-        "\n[ERR] 源文件已变化，中断前上传的分卷无法与新生成的字节流对齐。\n"
-        f"      选择一：`delete {task_id}` 后重建（会得到新的 task_id，旧分卷留在云端需自行清理）\n"
-        "      选择二：确认源文件其实没变（例如只改动了 mtime），加 `--verify=off` 强制续传",
+        _f("\n[ERR] 源文件已变化，中断前上传的分卷无法与新生成的字节流对齐。\n"
+           "      选择一：`delete {0}` 后重建（会得到新的 task_id，旧分卷留在云端需自行清理）\n"
+           "      选择二：确认源文件其实没变（例如只改动了 mtime），加 `--verify=off` 强制续传",
+           task_id),
         err=True,
     )
     raise SystemExit(1)
@@ -164,9 +166,9 @@ def _check_volume_against_record(prev: Optional[dict], info: VolumeInfo) -> None
             or prev.get('size_bytes') != info.size
             or prev.get('start_offset') != info.start_offset):
         raise VolumeMismatchError(
-            f"第 {info.part_number} 卷与记录不符："
-            f"md5 记录 {prev['md5'][:8]}… 实际 {info.md5[:8]}…，"
-            f"大小记录 {prev.get('size_bytes')} 实际 {info.size}"
+            _f("第 {0} 卷与记录不符：md5 记录 {1}… 实际 {2}…，大小记录 {3} 实际 {4}",
+               info.part_number, prev['md5'][:8], info.md5[:8],
+               prev.get('size_bytes'), info.size)
         )
 
 
@@ -185,15 +187,15 @@ def _resolve_password(task: dict, provided: Optional[str], task_id: str) -> Opti
 
     if not encrypted:
         if pwd:
-            click.echo("[WARN] 该任务创建时未加密，已忽略密码参数", err=True)
+            click.echo(_("[WARN] 该任务创建时未加密，已忽略密码参数"), err=True)
         return None
 
     if not pwd:
-        pwd = click.prompt("压缩包密码", hide_input=True)
+        pwd = click.prompt(_("压缩包密码"), hide_input=True)
 
     expected = task.get('password_tag')
     if expected and password_tag(task_id, pwd) != expected:
-        click.echo("[ERR] 密码与任务创建时不一致。", err=True)
+        click.echo(_("[ERR] 密码与任务创建时不一致。"), err=True)
         raise SystemExit(1)
     return pwd
 
@@ -209,7 +211,7 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
     # 清理上次中断残留的孤儿分卷
     cleaned = rm.cleanup_orphan_volumes()
     if cleaned:
-        click.echo(f"[CLEAN] 清理了 {cleaned} 个残留分卷")
+        click.echo(_f("[CLEAN] 清理了 {0} 个残留分卷", cleaned))
 
     _verify_source(task, db, task_id, verify)
     pwd = _resolve_password(task, password, task_id)
@@ -264,7 +266,7 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
             bp = backpressure
 
         if bp and bp > 50:
-            click.echo(f"[WARN] 背压上限 {bp} 较大，可能占用较多临时空间")
+            click.echo(_f("[WARN] 背压上限 {0} 较大，可能占用较多临时空间", bp))
 
         result, uploaded, failed, skipped = uploader.upload_all(
             vol_gen, task['remote_dir'], task['base_name'], task_id,
@@ -273,36 +275,32 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
 
         if result == UploadResult.COMPLETED:
             db.update_task_status(task_id, TaskStatus.COMPLETED)
-            click.echo(
-                f"[OK] 任务 {task_id} 完成！"
-                f"本次上传 {len(uploaded)} 卷, 跳过 {len(skipped)} 卷"
-            )
+            click.echo(_f("[OK] 任务 {0} 完成！本次上传 {1} 卷, 跳过 {2} 卷",
+                          task_id, len(uploaded), len(skipped)))
         elif result == UploadResult.PARTIAL:
-            msg = f"失败分卷: {failed}"
+            msg = _f("失败分卷: {0}", failed)
             db.update_task_status(task_id, TaskStatus.PARTIAL, error_message=msg)
-            click.echo(
-                f"[WARN] 任务 {task_id} 部分完成。"
-                f"上传 {len(uploaded)}, 跳过 {len(skipped)}, 失败 {len(failed)}"
-            )
-            click.echo(f"    使用 `resume {task_id}` 重试失败分卷")
+            click.echo(_f("[WARN] 任务 {0} 部分完成。上传 {1}, 跳过 {2}, 失败 {3}",
+                          task_id, len(uploaded), len(skipped), len(failed)))
+            click.echo(_f("    使用 `resume {0}` 重试失败分卷", task_id))
         else:
             db.update_task_status(task_id, TaskStatus.FAILED,
-                                  error_message=f"所有分卷失败: {failed}")
-            click.echo(f"[ERR] 任务 {task_id} 全部失败", err=True)
+                                  error_message=_f("所有分卷失败: {0}", failed))
+            click.echo(_f("[ERR] 任务 {0} 全部失败", task_id), err=True)
 
     except VolumeMismatchError as e:
         db.update_task_status(task_id, TaskStatus.FAILED, error_message=str(e))
-        click.echo(f"[ERR] 续传校验失败：{e}", err=True)
-        click.echo("      源文件在中断后被改动过，请 `delete` 后重建任务。", err=True)
+        click.echo(_f("[ERR] 续传校验失败：{0}", e), err=True)
+        click.echo(_("      源文件在中断后被改动过，请 `delete` 后重建任务。"), err=True)
         raise SystemExit(1)
     except KeyboardInterrupt:
         # 已被 uploader 记录状态，这里仅提示
-        sys.stderr.write("[STOP] 任务已中断，可通过 `resume` 恢复\n")
+        sys.stderr.write(_("[STOP] 任务已中断，可通过 `resume` 恢复\n"))
         sys.stderr.flush()
         raise
     except Exception as e:
         db.update_task_status(task_id, TaskStatus.FAILED, error_message=str(e))
-        click.echo(f"[ERR] 任务 {task_id} 异常: {e}", err=True)
+        click.echo(_f("[ERR] 任务 {0} 异常: {1}", task_id, e), err=True)
         raise
 
 
@@ -318,10 +316,8 @@ def _reset_stale_tasks() -> None:
         logger.warning(f"检查遗留任务状态失败: {e}")
         return
     if stale:
-        click.echo(
-            f"[CLEAN] {stale} 个上次中断的任务已标记为 interrupted，"
-            f"可用 `resume <task_id>` 继续"
-        )
+        click.echo(_f("[CLEAN] {0} 个上次中断的任务已标记为 interrupted，"
+                      "可用 `resume <task_id>` 继续", stale))
 
 
 @click.group()
@@ -331,36 +327,36 @@ def cli():
 
 
 @cli.command()
-@click.option('--source', '-s', required=True, help='源目录路径')
+@click.option('--source', '-s', required=True, help=_('源目录路径'))
 @click.option('--files', '-f', required=True,
-              help='要压缩的文件列表，逗号分隔。用 "." 表示 source 下全部')
+              help=_('要压缩的文件列表，逗号分隔。用 "." 表示 source 下全部'))
 @click.option('--remote', '-r', default='/apps/StreamPack',
-              help='网盘目标目录（默认 /apps/StreamPack）')
-@click.option('--name', '-n', required=True, help='压缩包基本名称（不含扩展名）')
+              help=_('网盘目标目录（默认 /apps/StreamPack）'))
+@click.option('--name', '-n', required=True, help=_('压缩包基本名称（不含扩展名）'))
 @click.option('--volume-size', '-v', default=DEFAULT_VOLUME_SIZE,
-              help='分卷大小（字节），默认 1GB')
-@click.option('--resume', is_flag=True, help='尝试续传已存在的同名任务')
+              help=_('分卷大小（字节），默认 1GB'))
+@click.option('--resume', is_flag=True, help=_('尝试续传已存在的同名任务'))
 @click.option('--backpressure', default=None, is_flag=False, flag_value='auto',
-              help='启用背压。无值=默认上限；--backpressure=20=上限20；不传=不启用')
-@click.option('--ext', default='.zip', help='上传后的文件后缀（如 .zip / .zi123p）')
+              help=_('启用背压。无值=默认上限；--backpressure=20=上限20；不传=不启用'))
+@click.option('--ext', default='.zip', help=_('上传后的文件后缀（如 .zip / .zi123p）'))
 @click.option('--verify', type=click.Choice(VERIFY_CHOICES), default='full',
               show_default=True,
-              help='续传前校验：full=指纹+逐卷 MD5，stat=只比指纹，off=不校验')
+              help=_('续传前校验：full=指纹+逐卷 MD5，stat=只比指纹，off=不校验'))
 @click.option('--password', default=None,
-              help='用 AES-256 加密归档。建议改用环境变量 STREAMPACK_PASSWORD，避免留在命令历史里')
+              help=_('用 AES-256 加密归档。建议改用环境变量 STREAMPACK_PASSWORD，避免留在命令历史里'))
 @click.option('--provider', type=click.Choice(available_providers()), default=None,
-              help='存储后端；默认取配置项 provider（baidu）。local 用于离线预演')
+              help=_('存储后端；默认取配置项 provider（baidu）。local 用于离线预演'))
 def upload(source, files, remote, name, volume_size, resume, ext, backpressure,
            verify, password, provider):
     """创建并执行上传任务。若任务已存在，将续传/重跑。"""
     file_list = [f.strip() for f in files.split(',')]
     source_dir = Path(source).resolve()
     if not source_dir.exists():
-        click.echo(f"[ERR] 源目录 {source_dir} 不存在", err=True)
+        click.echo(_f("[ERR] 源目录 {0} 不存在", source_dir), err=True)
         return
 
     task_id = make_task_id(str(source_dir), name, remote, volume_size, file_list)
-    click.echo(f"任务 ID: {task_id}")
+    click.echo(_f("任务 ID: {0}", task_id))
 
     if backpressure is None:
         bp_limit = None
@@ -376,9 +372,9 @@ def upload(source, files, remote, name, volume_size, resume, ext, backpressure,
     if existing:
         status = existing['status']
         if status == TaskStatus.COMPLETED.value:
-            click.echo(f"任务 {task_id} 已完成。如需重做请先 delete。")
+            click.echo(_f("任务 {0} 已完成。如需重做请先 delete。", task_id))
             return
-        click.echo(f"发现任务 {task_id}（{status}），将续传/重跑")
+        click.echo(_f("发现任务 {0}（{1}），将续传/重跑", task_id, status))
         _run_upload(task_id, existing, db, backpressure=bp_limit,
                     verify=verify, password=password, provider_name=provider)
         return
@@ -400,23 +396,23 @@ def upload(source, files, remote, name, volume_size, resume, ext, backpressure,
 @click.argument('task_id')
 @click.option('--verify', type=click.Choice(VERIFY_CHOICES), default='full',
               show_default=True,
-              help='续传前校验：full=指纹+逐卷 MD5，stat=只比指纹，off=不校验')
+              help=_('续传前校验：full=指纹+逐卷 MD5，stat=只比指纹，off=不校验'))
 @click.option('--password', default=None,
-              help='加密任务的密码（也可用环境变量 STREAMPACK_PASSWORD；缺省时交互输入）')
+              help=_('加密任务的密码（也可用环境变量 STREAMPACK_PASSWORD；缺省时交互输入）'))
 @click.option('--provider', type=click.Choice(available_providers()), default=None,
-              help='存储后端；默认取配置项 provider（baidu）')
+              help=_('存储后端；默认取配置项 provider（baidu）'))
 def resume(task_id, verify, password, provider):
     """恢复中断的上传任务"""
     db = TaskDB()
     task = db.get_task(task_id)
     if not task:
-        click.echo(f"[ERR] 任务 {task_id} 不存在", err=True)
+        click.echo(_f("[ERR] 任务 {0} 不存在", task_id), err=True)
         return
     if task['status'] == TaskStatus.COMPLETED.value:
-        click.echo(f"任务 {task_id} 已完成，无需恢复")
+        click.echo(_f("任务 {0} 已完成，无需恢复", task_id))
         return
-    click.echo(f"已上传分卷: {db.get_completed_part_numbers(task_id)}")
-    click.echo(f"待重试分卷: {db.get_failed_part_numbers(task_id)}")
+    click.echo(_f("已上传分卷: {0}", db.get_completed_part_numbers(task_id)))
+    click.echo(_f("待重试分卷: {0}", db.get_failed_part_numbers(task_id)))
     _run_upload(task_id, task, db, backpressure=None, verify=verify,
                 password=password, provider_name=provider)
 
@@ -427,14 +423,12 @@ def list_tasks():
     db = TaskDB()
     tasks = db.get_all_tasks()
     if not tasks:
-        click.echo("没有任务记录")
+        click.echo(_("没有任务记录"))
         return
     for t in tasks:
-        click.echo(
-            f"{t['task_id']} | {t['status']} | "
-            f"分卷 {t['completed_volumes']}/{t['total_volumes']} | "
-            f"{t['remote_dir']}/{t['base_name']}{t.get('remote_suffix', '.zip')}"
-        )
+        target = f"{t['remote_dir']}/{t['base_name']}{t.get('remote_suffix', '.zip')}"
+        click.echo(_f("{0} | {1} | 分卷 {2}/{3} | {4}", t['task_id'], t['status'],
+                      t['completed_volumes'], t['total_volumes'], target))
 
 
 @cli.command()
@@ -444,35 +438,36 @@ def status(task_id):
     db = TaskDB()
     task = db.get_task(task_id)
     if not task:
-        click.echo(f"[ERR] 任务 {task_id} 不存在", err=True)
+        click.echo(_f("[ERR] 任务 {0} 不存在", task_id), err=True)
         return
-    click.echo(f"任务 ID: {task['task_id']}")
-    click.echo(f"状态: {task['status']}")
-    click.echo(f"源目录: {task['source_dir']}")
-    click.echo(f"文件数: {len(task['file_list'])}")
-    click.echo(f"目标: {task['remote_dir']}/{task['base_name']}{task.get('remote_suffix', '.zip')}")
-    click.echo(f"分卷大小: {task['volume_size_bytes'] // (1024*1024)} MB")
-    click.echo(f"总卷数: {task['total_volumes']}")
-    click.echo(f"已完成: {task['completed_volumes']}")
+    target = f"{task['remote_dir']}/{task['base_name']}{task.get('remote_suffix', '.zip')}"
+    click.echo(_f("任务 ID: {0}", task['task_id']))
+    click.echo(_f("状态: {0}", task['status']))
+    click.echo(_f("源目录: {0}", task['source_dir']))
+    click.echo(_f("文件数: {0}", len(task['file_list'])))
+    click.echo(_f("目标: {0}", target))
+    click.echo(_f("分卷大小: {0} MB", task['volume_size_bytes'] // (1024 * 1024)))
+    click.echo(_f("总卷数: {0}", task['total_volumes']))
+    click.echo(_f("已完成: {0}", task['completed_volumes']))
     if task['error_message']:
-        click.echo(f"错误: {task['error_message']}")
+        click.echo(_f("错误: {0}", task['error_message']))
     volumes = db.get_all_volumes(task_id)
     if volumes:
-        click.echo("\n分卷状态:")
+        click.echo(_("\n分卷状态:"))
         for v in volumes:
-            click.echo(f"  {v['part_number']:4d} | {v['status']} | {v['remote_path']}")
+            click.echo(_f("  {0:4d} | {1} | {2}", v['part_number'], v['status'], v['remote_path']))
 
 
 @cli.command()
 @click.argument('task_id')
-@click.option('--yes', is_flag=True, help='确认删除，无需二次确认')
+@click.option('--yes', is_flag=True, help=_('确认删除，无需二次确认'))
 def delete(task_id, yes):
     """删除任务记录（不影响已上传文件）"""
     db = TaskDB()
     if not yes:
-        click.confirm(f"确定要删除任务 {task_id} 吗？", abort=True)
+        click.confirm(_f("确定要删除任务 {0} 吗？", task_id), abort=True)
     db.delete_task(task_id)
-    click.echo(f"任务 {task_id} 已删除")
+    click.echo(_f("任务 {0} 已删除", task_id))
 
 
 @cli.group()
@@ -485,7 +480,7 @@ def config_path_cmd():
     """显示配置文件位置"""
     p = config_path()
     click.echo(str(p))
-    click.echo(f"状态: {'已存在' if p.exists() else '尚未创建（全部使用默认值）'}")
+    click.echo(_f("状态: {0}", _("已存在") if p.exists() else _("尚未创建（全部使用默认值）")))
 
 
 @config.command('list')
@@ -503,14 +498,15 @@ def config_list():
     name_width = max(len(r[0]) for r in rows)
     value_width = min(max(len(r[1]) for r in rows), 72)
 
-    click.echo(f"{'配置项':<{name_width}}  {'值':<{value_width}}  来源")
+    click.echo(_f("{0:<{1}}  {2:<{3}}  {4}", _("配置项"), name_width,
+                  _("值"), value_width, _("来源")))
     click.echo("-" * (name_width + value_width + 12))
     for name, shown, source in rows:
         click.echo(f"{name:<{name_width}}  {shown:<{value_width}}  {source}")
 
     click.echo()
-    click.echo(f"来源：env = 环境变量 {ENV_PREFIX}<字段名>，"
-               f"file = 配置文件，default = 代码默认值")
+    click.echo(_f("来源：env = 环境变量 {0}<字段名>，"
+                  "file = 配置文件，default = 代码默认值", ENV_PREFIX))
 
 
 @config.command('get')
@@ -518,7 +514,7 @@ def config_list():
 def config_get(key):
     """读取一项配置的生效值"""
     if key not in SPECS:
-        click.echo(f"[ERR] 未知配置项: {key}（用 `config list` 查看可选项）", err=True)
+        click.echo(_f("[ERR] 未知配置项: {0}（用 `config list` 查看可选项）", key), err=True)
         raise SystemExit(1)
     value = effective_values()[key]
     if isinstance(value, list):
@@ -535,18 +531,18 @@ def config_get(key):
 def config_set(key, value):
     """修改一项配置（写入配置文件）"""
     if key not in SPECS:
-        click.echo(f"[ERR] 未知配置项: {key}（用 `config list` 查看可选项）", err=True)
+        click.echo(_f("[ERR] 未知配置项: {0}（用 `config list` 查看可选项）", key), err=True)
         raise SystemExit(1)
     try:
         path = set_value(key, value)
     except ValueError as e:
-        click.echo(f"[ERR] {e}", err=True)
+        click.echo(_f("[ERR] {0}", e), err=True)
         raise SystemExit(1)
     except TypeError as e:
-        click.echo(f"[ERR] 取值不合法: {e}", err=True)
+        click.echo(_f("[ERR] 取值不合法: {0}", e), err=True)
         raise SystemExit(1)
-    click.echo(f"[OK] {key} = {effective_values()[key]}")
-    click.echo(f"     已写入 {path}")
+    click.echo(_f("[OK] {0} = {1}", key, effective_values()[key]))
+    click.echo(_f("     已写入 {0}", path))
 
 
 @config.command('unset')
@@ -554,11 +550,33 @@ def config_set(key, value):
 def config_unset(key):
     """删除一项配置，回到默认值"""
     if key not in SPECS:
-        click.echo(f"[ERR] 未知配置项: {key}", err=True)
+        click.echo(_f("[ERR] 未知配置项: {0}", key), err=True)
         raise SystemExit(1)
     path = unset_value(key)
-    click.echo(f"[OK] {key} 已恢复默认值（{effective_values()[key]}）")
-    click.echo(f"     已写入 {path}")
+    click.echo(_f("[OK] {0} 已恢复默认值（{1}）", key, effective_values()[key]))
+    click.echo(_f("     已写入 {0}", path))
+
+
+def _translate_command_docs(group: click.Group) -> None:
+    """
+    click 拿 docstring 当命令说明，而且是在装饰时就抓走的，
+    所以只能在定义完之后统一翻一遍。
+    """
+    if group.help:
+        group.help = _(group.help)
+    if group.short_help:
+        group.short_help = _(group.short_help)
+
+    for cmd in group.commands.values():
+        if cmd.help:
+            cmd.help = _(cmd.help)
+        if cmd.short_help:
+            cmd.short_help = _(cmd.short_help)
+        if isinstance(cmd, click.Group):
+            _translate_command_docs(cmd)
+
+
+_translate_command_docs(cli)
 
 
 if __name__ == '__main__':

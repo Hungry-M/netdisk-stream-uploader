@@ -1,6 +1,5 @@
 # StreamPack — English translation
-# 源字符串是中文（代码里的原文），这里给出英文。
-# 修改后运行：python scripts/build_mo.py
+# 源字符串是中文（代码原文）。改完运行：python scripts/build_mo.py
 msgid ""
 msgstr ""
 "Project-Id-Version: StreamPack 0.6\n"
@@ -10,78 +9,458 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-# --- 表格列 ---
-msgid "任务 ID"
-msgstr "Task ID"
+#: src\cli.py:109
+msgid "[INFO] 该任务没有指纹基线，已按当前源文件补记；本次不做比对"
+msgstr "[INFO] No fingerprint baseline for this task; recorded one from the current sources. No comparison this run"
 
-msgid "名称"
-msgstr "Name"
+#: src\cli.py:122
+msgid "\n[ERR] 源文件已变化，中断前上传的分卷无法与新生成的字节流对齐。\n      选择一：`delete {0}` 后重建（会得到新的 task_id，旧分卷留在云端需自行清理）\n      选择二：确认源文件其实没变（例如只改动了 mtime），加 `--verify=off` 强制续传"
+msgstr "\n[ERR] Source files changed; volumes uploaded before the interruption cannot line up with the new byte stream.\n      Option 1: `delete {0}` and rebuild (you get a new task_id; old volumes stay in the cloud and must be cleaned up manually)\n      Option 2: if the sources did not really change (e.g. only mtime), force a resume with `--verify=off`"
 
-msgid "状态"
-msgstr "Status"
+#: src\cli.py:169
+msgid "第 {0} 卷与记录不符：md5 记录 {1}… 实际 {2}…，大小记录 {3} 实际 {4}"
+msgstr "Volume {0} does not match the record: md5 recorded {1}… actual {2}…, size recorded {3} actual {4}"
 
-msgid "进度"
-msgstr "Progress"
+#: src\cli.py:190
+msgid "[WARN] 该任务创建时未加密，已忽略密码参数"
+msgstr "[WARN] This task was created unencrypted; ignoring the password"
 
-msgid "目标"
-msgstr "Target"
+#: src\cli.py:194
+msgid "压缩包密码"
+msgstr "Archive password"
 
-# --- 窗口与按钮 ---
-msgid "分卷流式网盘上传"
-msgstr "Streaming volume uploads"
+#: src\cli.py:198
+msgid "[ERR] 密码与任务创建时不一致。"
+msgstr "[ERR] Password does not match the one used when the task was created."
 
-msgid "刷新"
-msgstr "Refresh"
+#: src\cli.py:214
+msgid "[CLEAN] 清理了 {0} 个残留分卷"
+msgstr "[CLEAN] Removed {0} leftover volumes"
 
-msgid "续传"
-msgstr "Resume"
+#: src\cli.py:269
+msgid "[WARN] 背压上限 {0} 较大，可能占用较多临时空间"
+msgstr "[WARN] Backpressure cap {0} is large; it may use a lot of temporary space"
 
-msgid "查看分卷"
-msgstr "Volumes"
+#: src\cli.py:278
+msgid "[OK] 任务 {0} 完成！本次上传 {1} 卷, 跳过 {2} 卷"
+msgstr "[OK] Task {0} finished. Uploaded {1} volume(s), skipped {2}"
 
-msgid "删除记录"
-msgstr "Delete"
+#: src\cli.py:281
+msgid "失败分卷: {0}"
+msgstr "Failed volumes: {0}"
 
-msgid "分卷"
-msgstr "Volumes"
+#: src\cli.py:283
+msgid "[WARN] 任务 {0} 部分完成。上传 {1}, 跳过 {2}, 失败 {3}"
+msgstr "[WARN] Task {0} partially completed. Uploaded {1}, skipped {2}, failed {3}"
 
-# --- 提示 ---
-msgid "先选一个任务"
-msgstr "Select a task first"
+#: src\cli.py:285
+msgid "    使用 `resume {0}` 重试失败分卷"
+msgstr "    Use `resume {0}` to retry the failed volumes"
 
-msgid "已有任务在运行，等它结束"
-msgstr "Another task is running; wait for it to finish"
+#: src\cli.py:288
+msgid "所有分卷失败: {0}"
+msgstr "All volumes failed: {0}"
 
+#: src\cli.py:289
+msgid "[ERR] 任务 {0} 全部失败"
+msgstr "[ERR] Task {0} failed entirely"
+
+#: src\cli.py:293
+msgid "[ERR] 续传校验失败：{0}"
+msgstr "[ERR] Resume verification failed: {0}"
+
+#: src\cli.py:294
+msgid "      源文件在中断后被改动过，请 `delete` 后重建任务。"
+msgstr "      Source files changed after the interruption; `delete` and rebuild the task."
+
+#: src\cli.py:298
+msgid "[STOP] 任务已中断，可通过 `resume` 恢复\n"
+msgstr "[STOP] Task interrupted; resume it with `resume`\n"
+
+#: src\cli.py:303
+msgid "[ERR] 任务 {0} 异常: {1}"
+msgstr "[ERR] Task {0} failed: {1}"
+
+#: src\cli.py:319
+msgid "[CLEAN] {0} 个上次中断的任务已标记为 interrupted，可用 `resume <task_id>` 继续"
+msgstr "[CLEAN] {0} task(s) from a previous run marked as interrupted; use `resume <task_id>` to continue"
+
+#: src\cli.py:324
+msgid "Netdisk Stream Uploader - 命令行工具"
+msgstr "Netdisk Stream Uploader - command line tool"
+
+#: src\cli.py:330
+msgid "源目录路径"
+msgstr "Source directory"
+
+#: src\cli.py:332
+msgid "要压缩的文件列表，逗号分隔。用 \".\" 表示 source 下全部"
+msgstr "Files to archive, comma separated. Use \".\" for everything under the source directory"
+
+#: src\cli.py:334
+msgid "网盘目标目录（默认 /apps/StreamPack）"
+msgstr "Target directory on the netdisk (default /apps/StreamPack)"
+
+#: src\cli.py:335
+msgid "压缩包基本名称（不含扩展名）"
+msgstr "Archive base name (without extension)"
+
+#: src\cli.py:337
+msgid "分卷大小（字节），默认 1GB"
+msgstr "Volume size in bytes (default 1 GB)"
+
+#: src\cli.py:338
+msgid "尝试续传已存在的同名任务"
+msgstr "Resume an existing task with the same parameters"
+
+#: src\cli.py:340
+msgid "启用背压。无值=默认上限；--backpressure=20=上限20；不传=不启用"
+msgstr "Enable backpressure. No value = default cap; --backpressure=20 = cap 20; omit = disabled"
+
+#: src\cli.py:341
+msgid "上传后的文件后缀（如 .zip / .zi123p）"
+msgstr "File suffix used on the netdisk (e.g. .zip / .zi123p)"
+
+#: src\cli.py:344
+msgid "续传前校验：full=指纹+逐卷 MD5，stat=只比指纹，off=不校验"
+msgstr "Verification before resuming: full = fingerprint + per-volume MD5, stat = fingerprint only, off = none"
+
+#: src\cli.py:346
+msgid "用 AES-256 加密归档。建议改用环境变量 STREAMPACK_PASSWORD，避免留在命令历史里"
+msgstr "Encrypt the archive with AES-256. Prefer the STREAMPACK_PASSWORD environment variable to keep it out of your shell history"
+
+#: src\cli.py:348
+msgid "存储后端；默认取配置项 provider（baidu）。local 用于离线预演"
+msgstr "Storage backend; defaults to the provider config option (baidu). Use local for offline rehearsals"
+
+#: src\cli.py:349
+msgid "创建并执行上传任务。若任务已存在，将续传/重跑。"
+msgstr "Create and run an upload task. If the task exists, resume it."
+
+#: src\cli.py:355
+msgid "[ERR] 源目录 {0} 不存在"
+msgstr "[ERR] Source directory {0} does not exist"
+
+#: src\cli.py:359
+msgid "任务 ID: {0}"
+msgstr "Task ID: {0}"
+
+#: src\cli.py:375
+msgid "任务 {0} 已完成。如需重做请先 delete。"
+msgstr "Task {0} is already completed. Run delete first to redo it."
+
+#: src\cli.py:377
+msgid "发现任务 {0}（{1}），将续传/重跑"
+msgstr "Found task {0} ({1}); resuming"
+
+#: src\cli.py:401
+msgid "加密任务的密码（也可用环境变量 STREAMPACK_PASSWORD；缺省时交互输入）"
+msgstr "Password for the encrypted task (or STREAMPACK_PASSWORD; prompted if missing)"
+
+#: src\cli.py:403
+msgid "存储后端；默认取配置项 provider（baidu）"
+msgstr "Storage backend; defaults to the provider config option (baidu)"
+
+#: src\cli.py:404
+msgid "恢复中断的上传任务"
+msgstr "Resume an interrupted upload task"
+
+#: src\cli.py:409
+msgid "[ERR] 任务 {0} 不存在"
+msgstr "[ERR] Task {0} does not exist"
+
+#: src\cli.py:412
+msgid "任务 {0} 已完成，无需恢复"
+msgstr "Task {0} is already completed; nothing to resume"
+
+#: src\cli.py:414
+msgid "已上传分卷: {0}"
+msgstr "Uploaded volumes: {0}"
+
+#: src\cli.py:415
+msgid "待重试分卷: {0}"
+msgstr "Volumes to retry: {0}"
+
+#: src\cli.py:421
+msgid "列出所有任务"
+msgstr "List all tasks"
+
+#: src\cli.py:426
+msgid "没有任务记录"
+msgstr "No task records"
+
+#: src\cli.py:430
+msgid "{0} | {1} | 分卷 {2}/{3} | {4}"
+msgstr "{0} | {1} | volumes {2}/{3} | {4}"
+
+#: src\cli.py:436
+msgid "查看任务详情"
+msgstr "Show task details"
+
+#: src\cli.py:445
+msgid "状态: {0}"
+msgstr "Status: {0}"
+
+#: src\cli.py:446
+msgid "源目录: {0}"
+msgstr "Source: {0}"
+
+#: src\cli.py:447
+msgid "文件数: {0}"
+msgstr "Files: {0}"
+
+#: src\cli.py:448
+msgid "目标: {0}"
+msgstr "Target: {0}"
+
+#: src\cli.py:449
+msgid "分卷大小: {0} MB"
+msgstr "Volume size: {0} MB"
+
+#: src\cli.py:450
+msgid "总卷数: {0}"
+msgstr "Total volumes: {0}"
+
+#: src\cli.py:451
+msgid "已完成: {0}"
+msgstr "Completed: {0}"
+
+#: src\cli.py:453
+msgid "错误: {0}"
+msgstr "Error: {0}"
+
+#: src\cli.py:456
+msgid "\n分卷状态:"
+msgstr "\nVolume status:"
+
+#: src\cli.py:458
+msgid "  {0:4d} | {1} | {2}"
+msgstr "  {0:4d} | {1} | {2}"
+
+#: src\cli.py:463
+msgid "确认删除，无需二次确认"
+msgstr "Delete without asking for confirmation"
+
+#: src\cli.py:464
+msgid "删除任务记录（不影响已上传文件）"
+msgstr "Delete a task record (uploaded files are untouched)"
+
+#: src\cli.py:468
+msgid "确定要删除任务 {0} 吗？"
+msgstr "Delete task {0}?"
+
+#: src\cli.py:470
+msgid "任务 {0} 已删除"
+msgstr "Task {0} deleted"
+
+#: src\cli.py:474
+msgid "查看与修改用户配置（~/.netdisk_uploader/config.json）"
+msgstr "View and change user configuration (~/.netdisk_uploader/config.json)"
+
+#: src\cli.py:479
+msgid "显示配置文件位置"
+msgstr "Show the config file location"
+
+#: src\cli.py:483
+msgid "已存在"
+msgstr "exists"
+
+#: src\cli.py:483
+msgid "尚未创建（全部使用默认值）"
+msgstr "not created yet (all defaults)"
+
+#: src\cli.py:487
+msgid "列出所有配置项及其来源"
+msgstr "List every option and where its value comes from"
+
+#: src\cli.py:501
+msgid "{0:<{1}}  {2:<{3}}  {4}"
+msgstr "{0:<{1}}  {2:<{3}}  {4}"
+
+#: src\cli.py:501
+msgid "配置项"
+msgstr "Option"
+
+#: src\cli.py:502
+msgid "值"
+msgstr "Value"
+
+#: src\cli.py:502
+msgid "来源"
+msgstr "Source"
+
+#: src\cli.py:508
+msgid "来源：env = 环境变量 {0}<字段名>，file = 配置文件，default = 代码默认值"
+msgstr "Source: env = {0}<FIELD NAME>, file = config file, default = code default"
+
+#: src\cli.py:514
+msgid "读取一项配置的生效值"
+msgstr "Print the effective value of one option"
+
+#: src\cli.py:517
+msgid "[ERR] 未知配置项: {0}（用 `config list` 查看可选项）"
+msgstr "[ERR] Unknown option: {0} (see `config list`)"
+
+#: src\cli.py:531
+msgid "修改一项配置（写入配置文件）"
+msgstr "Change one option (written to the config file)"
+
+#: src\cli.py:539
+msgid "[ERR] {0}"
+msgstr "[ERR] {0}"
+
+#: src\cli.py:542
+msgid "[ERR] 取值不合法: {0}"
+msgstr "[ERR] Invalid value: {0}"
+
+#: src\cli.py:544
+msgid "[OK] {0} = {1}"
+msgstr "[OK] {0} = {1}"
+
+#: src\cli.py:545
+msgid "     已写入 {0}"
+msgstr "     written to {0}"
+
+#: src\cli.py:550
+msgid "删除一项配置，回到默认值"
+msgstr "Remove one option and fall back to its default"
+
+#: src\cli.py:553
+msgid "[ERR] 未知配置项: {0}"
+msgstr "[ERR] Unknown option: {0}"
+
+#: src\cli.py:556
+msgid "[OK] {0} 已恢复默认值（{1}）"
+msgstr "[OK] {0} restored to its default ({1})"
+
+#: src\cli.py:75
+msgid "[DIFF] 源文件与任务创建时不一致："
+msgstr "[DIFF] Source files differ from when the task was created:"
+
+#: src\cli.py:77
+msgid "  + {0}  ({1} 字节)"
+msgstr "  + {0}  ({1} bytes)"
+
+#: src\cli.py:79
+msgid "  - {0}  （已删除）"
+msgstr "  - {0}  (deleted)"
+
+#: src\cli.py:82
+msgid "  ~ {0}  大小 {1} → {2}"
+msgstr "  ~ {0}  size {1} → {2}"
+
+#: src\cli.py:84
+msgid "  ~ {0}  mtime 变了"
+msgstr "  ~ {0}  mtime changed"
+
+#: src\cli.py:86
+msgid "新增"
+msgstr "added"
+
+#: src\cli.py:86
+msgid "删除"
+msgstr "deleted"
+
+#: src\cli.py:86
+msgid "改动"
+msgstr "changed"
+
+#: src\cli.py:88
+msgid "  … 另有 {0} 个{1}未列出"
+msgstr "  … {0} more {1} not listed"
+
+#: src\gui\qt_app.py:129
 msgid "暂无任务"
 msgstr "No tasks"
 
-msgid "该任务还没有分卷记录"
-msgstr "This task has no volume records yet"
+#: src\gui\qt_app.py:143
+msgid "先选一个任务"
+msgstr "Select a task first"
 
+#: src\gui\qt_app.py:147
 msgid "删除任务 {0} 的本地记录？\n（不影响已上传到网盘的文件）"
 msgstr "Delete the local record for task {0}?\n(Already-uploaded files are untouched)"
 
+#: src\gui\qt_app.py:162
+msgid "分卷"
+msgstr "Volumes"
+
+#: src\gui\qt_app.py:162
+msgid "该任务还没有分卷记录"
+msgstr "This task has no volume records yet"
+
+#: src\gui\qt_app.py:179
+msgid "已有任务在运行，等它结束"
+msgstr "Another task is running; wait for it to finish"
+
+#: src\gui\qt_app.py:200
 msgid "[进程结束，退出码 {0}]"
 msgstr "[process exited with code {0}]"
 
-# --- 任务状态 ---
+#: src\gui\qt_app.py:25
+msgid "任务 ID"
+msgstr "Task ID"
+
+#: src\gui\qt_app.py:25
+msgid "名称"
+msgstr "Name"
+
+#: src\gui\qt_app.py:25
+msgid "状态"
+msgstr "Status"
+
+#: src\gui\qt_app.py:25
+msgid "进度"
+msgstr "Progress"
+
+#: src\gui\qt_app.py:25
+msgid "目标"
+msgstr "Target"
+
+#: src\gui\qt_app.py:55
+msgid "分卷流式网盘上传"
+msgstr "Streaming volume uploads"
+
+#: src\gui\qt_app.py:81
+msgid "刷新"
+msgstr "Refresh"
+
+#: src\gui\qt_app.py:82
+msgid "续传"
+msgstr "Resume"
+
+#: src\gui\qt_app.py:83
+msgid "查看分卷"
+msgstr "Volumes"
+
+#: src\gui\qt_app.py:84
+msgid "删除记录"
+msgstr "Delete"
+
+#: src\gui\viewmodel.py:22
 msgid "待开始"
 msgstr "Pending"
 
+#: src\gui\viewmodel.py:23
 msgid "进行中"
 msgstr "Running"
 
+#: src\gui\viewmodel.py:24
 msgid "已完成"
 msgstr "Completed"
 
+#: src\gui\viewmodel.py:25
 msgid "失败"
 msgstr "Failed"
 
+#: src\gui\viewmodel.py:26
 msgid "部分完成"
 msgstr "Partial"
 
+#: src\gui\viewmodel.py:27
 msgid "已暂停"
 msgstr "Paused"
 
+#: src\gui\viewmodel.py:28
 msgid "已中断"
 msgstr "Interrupted"
