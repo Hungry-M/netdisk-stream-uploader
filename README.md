@@ -131,6 +131,15 @@ python main.py resume <task_id> --verify=stat   # fingerprint only
 python main.py resume <task_id> --verify=off    # skip the check (only if you know nothing changed)
 ```
 
+### Graphical interface
+
+```bash
+pip install -r requirements-gui.txt   # PySide6-Essentials only, no QtWebEngine
+python main.py --gui
+```
+
+The window shows the task list with progress, per-volume details, resume, delete, and a live log pane. The resume button runs `python main.py resume <id>` under the hood — the exact same logic as the CLI.
+
 ### Delete task records
 
 ```bash
@@ -263,7 +272,7 @@ The password is stored nowhere (the database only keeps a PBKDF2 verifier for co
 - [x] `__streampack__.json` manifest embedded in the archive
 - [x] AES-256 encrypted archives
 - [x] `StorageProvider` interface, with a local-directory implementation
-- [ ] Graphical interface (PySide6)
+- [x] Graphical interface (PySide6, basic: task list / resume / volume details / log)
 - [ ] Multi-language support (gettext)
 - [ ] A second real netdisk backend (interface ready, no account to verify against)
 - [ ] 7z — needs a randomly-addressable container, which conflicts with streaming; deferred

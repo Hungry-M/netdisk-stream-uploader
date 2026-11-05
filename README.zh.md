@@ -131,6 +131,15 @@ python main.py resume <task_id> --verify=stat   # 只比指纹
 python main.py resume <task_id> --verify=off    # 跳过校验（确定源没变时用）
 ```
 
+### 图形界面
+
+```bash
+pip install -r requirements-gui.txt   # 只装 PySide6-Essentials，不含 QtWebEngine
+python main.py --gui
+```
+
+窗口里能看任务列表与进度、查看分卷明细、续传、删除记录，底部是实时日志。续传按钮背后调的是 `python main.py resume <id>`，与命令行完全同一套逻辑。
+
 ### 删除任务记录
 
 ```bash
@@ -263,7 +272,7 @@ cat arch.part*.zip > arch.zip
 - [x] 归档内置 `__streampack__.json` 清单
 - [x] AES-256 加密归档
 - [x] 存储后端接口（`StorageProvider`），附本地目录实现
-- [ ] 图形界面（PySide6）
+- [x] 图形界面（PySide6，基础版：任务列表 / 续传 / 分卷明细 / 日志）
 - [ ] 多语言支持（gettext）
 - [ ] 第二个真实网盘后端（接口已就位，缺账号验证）
 - [ ] 7z —— 需要能随机访问的容器，与流式生成冲突，暂缓

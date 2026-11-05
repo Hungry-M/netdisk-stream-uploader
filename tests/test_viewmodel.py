@@ -95,6 +95,20 @@ def test_summary_counts(vm):
     assert model.summary() == {"completed": 1, "interrupted": 2}
 
 
+def test_summary_labels_are_localized(vm):
+    model, db = vm
+    _add(db, "a", "x", status=TaskStatus.COMPLETED)
+    _add(db, "b", "y", status=TaskStatus.FAILED)
+
+    assert model.summary_labels() == {"已完成": 1, "失败": 1}
+
+
+def test_label_for_unknown_status_falls_back(vm):
+    from src.gui.viewmodel import label_for
+
+    assert label_for("some_new_state") == "some_new_state"
+
+
 def test_delete_removes_task_and_volumes(vm):
     model, db = vm
     _add(db, "t1", volumes=2)

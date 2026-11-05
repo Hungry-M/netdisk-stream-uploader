@@ -10,6 +10,21 @@ from typing import Dict, List, Optional
 
 from src.database.task_db import TaskDB, TaskStatus
 
+STATUS_LABELS = {
+    TaskStatus.PENDING.value: "待开始",
+    TaskStatus.RUNNING.value: "进行中",
+    TaskStatus.COMPLETED.value: "已完成",
+    TaskStatus.FAILED.value: "失败",
+    TaskStatus.PARTIAL.value: "部分完成",
+    TaskStatus.PAUSED.value: "已暂停",
+    TaskStatus.INTERRUPTED.value: "已中断",
+}
+
+
+def label_for(status: str) -> str:
+    """状态键 → 中文标签；未知状态原样返回，方便发现新值。"""
+    return STATUS_LABELS.get(status, status)
+
 
 @dataclass(frozen=True)
 class TaskRow:
@@ -35,15 +50,7 @@ class TaskRow:
 
     @property
     def status_label(self) -> str:
-        return {
-            TaskStatus.PENDING.value: "待开始",
-            TaskStatus.RUNNING.value: "进行中",
-            TaskStatus.COMPLETED.value: "已完成",
-            TaskStatus.FAILED.value: "失败",
-            TaskStatus.PARTIAL.value: "部分完成",
-            TaskStatus.PAUSED.value: "已暂停",
-            TaskStatus.INTERRUPTED.value: "已中断",
-        }.get(self.status, self.status)
+        return label_for(self.status)
 
 
 @dataclass(frozen=True)
@@ -104,11 +111,16 @@ class TaskListViewModel:
         ]
 
     def summary(self) -> Dict[str, int]:
-        """状态栏用：各状态各有多少个任务。"""
+        """状态栏用：各状态各有多少个任务（键是原始状态值）。"""
         counts: Dict[str, int] = {}
         for task in self._db.get_all_tasks():
             counts[task['status']] = counts.get(task['status'], 0) + 1
         return counts
+
+    def summary_labels(self) -> Dict[str, int]:
+        """同上，但键换成中文标签，供界面直接显示。"""
+        return {label_for(status): count
+                for status, count in self.summary().items()}
 
     # ---------- 写 ----------
 

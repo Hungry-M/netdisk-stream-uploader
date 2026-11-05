@@ -59,6 +59,8 @@ class MainWindow(QMainWindow):
         self.table.setSelectionMode(QAbstractItemView.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.horizontalHeader().setStretchLastSection(True)
+        for column, width in enumerate((150, 150, 90, 110)):
+            self.table.setColumnWidth(column, width)
         self.table.doubleClicked.connect(lambda _: self.show_volumes())
         layout.addWidget(self.table)
 
@@ -99,9 +101,9 @@ class MainWindow(QMainWindow):
         rows = self.vm.refresh()
         self.model.load(rows)
 
-        counts = self.vm.summary()
+        counts = self.vm.summary_labels()
         if counts:
-            text = " · ".join(f"{k} {v}" for k, v in sorted(counts.items()))
+            text = " · ".join(f"{label} {count}" for label, count in sorted(counts.items()))
         else:
             text = "暂无任务"
         self.status.setText(text)

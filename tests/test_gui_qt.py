@@ -49,7 +49,7 @@ def test_rows_are_rendered(window):
 
 
 def test_status_bar_summary(window):
-    assert "interrupted 1" in window.status.text()
+    assert "已中断 1" in window.status.text()
 
 
 def test_refresh_picks_up_new_tasks(window):
