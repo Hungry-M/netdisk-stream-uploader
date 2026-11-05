@@ -56,12 +56,13 @@ def _parse_global_args(argv: List[str]):
     """
     摘出 main 自己的全局开关，剩下的交给 click。
 
-    支持：--debug / --quiet / --gui / --log-file <路径> / --log-file=<路径>
+    支持：--debug / --quiet / --gui / --lang <语言> / --log-file <路径>
     """
     debug = False
     quiet = False
     mode = "cli"
     log_file: Optional[str] = None
+    lang: Optional[str] = None
     remaining: List[str] = []
 
     i = 0
@@ -73,6 +74,14 @@ def _parse_global_args(argv: List[str]):
             quiet = True
         elif arg == "--gui":
             mode = "gui"
+        elif arg == "--lang":
+            i += 1
+            if i >= len(argv):
+                print("--lang 缺少语言参数", file=sys.stderr)
+                return None
+            lang = argv[i]
+        elif arg.startswith("--lang="):
+            lang = arg.split("=", 1)[1]
         elif arg == "--log-file":
             i += 1
             if i >= len(argv):
@@ -87,7 +96,16 @@ def _parse_global_args(argv: List[str]):
 
     # --debug 优先于 --quiet
     level = "DEBUG" if debug else ("WARNING" if quiet else "INFO")
-    return mode, level, log_file, remaining
+    return mode, level, log_file, lang, remaining
+
+
+def _configured_language() -> str:
+    """读配置里的 language；配置坏了也不能挡住启动。"""
+    try:
+        from src.config.user_config import effective_values
+        return str(effective_values().get("language") or "auto")
+    except Exception:
+        return "auto"
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -97,7 +115,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     parsed = _parse_global_args(argv)
     if parsed is None:
         return 2
-    mode, level, log_file, remaining = parsed
+    mode, level, log_file, lang, remaining = parsed
+
+    from src.i18n import set_language
+    set_language(lang or _configured_language())
 
     setup_logging(level, log_file=log_file)
 

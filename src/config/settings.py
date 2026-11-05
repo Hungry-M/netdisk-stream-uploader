@@ -65,6 +65,10 @@ class ResourceSettings:
     # provider=local 时的落盘根目录
     local_rehearsal_dir: str = "./_rehearsal"
 
+    # ----- 界面与语言 -----
+    # "auto" 按系统区域判断；也可写 "zh" / "en"
+    language: str = "auto"
+
     # ----- 通用配置 -----
     # 临时文件前缀（便于识别和清理）
     temp_file_prefix: str = "netdisk_upload_"
