@@ -128,8 +128,13 @@ class BaiduOAuth:
 
     # ---------- 对外入口 ----------
 
-    def get_valid_access_token(self) -> str:
-        """获取有效 token：内存 → 文件 → 刷新 → 重新授权"""
+    def get_valid_access_token(self, interactive: bool = True) -> str:
+        """
+        获取有效 token：内存 → 文件 → 刷新 → 重新授权。
+
+        interactive=False 时不会阻塞等待用户粘贴授权码，刷新也失败就抛
+        RuntimeError —— 供 GUI、离线预演等无人值守场景使用。
+        """
         # 1. 内存缓存
         if self._token_data and "access_token" in self._token_data:
             if self._is_valid(self._token_data):
@@ -149,6 +154,8 @@ class BaiduOAuth:
                     logger.warning(f"刷新令牌失败: {e}，将重新授权")
 
         # 3. 重新授权
+        if not interactive:
+            raise RuntimeError("access_token 已失效且无法刷新，需要重新授权")
         return self._do_interactive_auth()
 
     @staticmethod
