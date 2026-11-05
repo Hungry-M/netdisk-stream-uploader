@@ -1,28 +1,35 @@
 # src/baidu/client.py
-import requests
-import json
-from src.logger import get_logger
-from urllib.parse import quote
-from typing import Dict, Optional, BinaryIO
+"""
+百度网盘 API 客户端。
 
+关于"没有实现的东西"，这里写清楚，免得后人又加回来：
+
+- **分片上传**（precreate / upload_part / create）：目前用不到。分卷默认 1 GB，
+  远低于 PCS 单次上传上限（约 4 GB），一次 `method=upload` 就能传完。
+- **动态上传域名**（method=locateupload）：它需要 `uploadid`，而 `uploadid`
+  只能由 `precreate` 产生——也就是说动态域名必须建立在整套分片流程之上。
+  在单次上传这条路上它不可用，所以没有实现，上传域名固定为 `c.pcs.baidu.com`。
+
+如果将来真要做 > 4 GB 的单卷，这两件事要一起做，那时候再加。
+"""
+import json
+from typing import BinaryIO, Dict, Optional
+
+import requests
+
+from src.logger import get_logger
 from src.baidu.auth import BaiduOAuth
 
 logger = get_logger(__name__)
 
-# 普通 API 基础地址（用于非上传操作）
-BAIDU_API_BASE = "https://pan.baidu.com/rest/2.0/pcs"
-# 文件管理类操作（list / filemanager）的地址，与上传用的 PCS 不同
+# 单次上传用的 PCS 域名。不用 locateupload，原因见模块 docstring。
+PCS_UPLOAD_BASE = "https://c.pcs.baidu.com"
+# 文件管理类操作（list / filemanager）走 xpan，与上传用的 PCS 不是同一套
 XPAN_API_BASE = "https://pan.baidu.com/rest/2.0/xpan"
-# 获取上传域名时的固定地址
-LOCATE_UPLOAD_URL = "https://d.pcs.baidu.com/rest/2.0/pcs/file"
 
 
 class BaiduClient:
-    """
-    百度网盘 API 客户端。
-    - 集成 OAuth 授权，自动管理 access_token
-    - 上传前动态获取上传域名
-    """
+    """百度网盘 API 客户端，集成 OAuth 与 access_token 自动刷新。"""
 
     def __init__(self, client_id: str, client_secret: str,
                  token_file: Optional[str] = None):
@@ -32,7 +39,6 @@ class BaiduClient:
             'User-Agent': 'pan.baidu.com',
             'Accept-Encoding': 'identity',
         })
-        self._upload_domain_cache = None  # 缓存上传域名
 
     def _get_access_token(self) -> str:
         return self.oauth.get_valid_access_token()
@@ -73,118 +79,29 @@ class BaiduClient:
                 return resp.json()
             raise
 
-    # ---------- 获取上传域名 ----------
-
-    def locate_upload_domain(self, path: str, upload_id: str) -> str:
-        """
-        获取当前可用的上传域名。
-        分片上传和单步上传必须使用此接口返回的域名，不能固定写死。
-
-        Args:
-            path: 上传后的文件绝对路径，如 /apps/StreamPack/file.zip
-            upload_id: 预上传接口返回的 uploadid
-        Returns:
-            可用的上传服务地址（HTTPS）
-        """
-        params = {
-            'method': 'locateupload',
-            'appid': 250528,
-            'access_token': self._get_access_token(),
-            # 'path': quote(path, safe=''),  # 移除 quote 调用
-            'path': path,                     # 直接传递原始路径
-            'uploadid': upload_id,
-            'upload_version': '2.0',
-        }
-        resp = self.session.get(LOCATE_UPLOAD_URL, params=params, timeout=(10, 60))
-        resp.raise_for_status()
-        data = resp.json()
-
-        if data.get('error_code', 0) != 0:
-            raise Exception(
-                f"获取上传域名失败 ({data.get('error_code')}): "
-                f"{data.get('error_msg', '未知错误')}"
-            )
-
-        servers = data.get('servers', [])
-        if not servers:
-            raise RuntimeError(f"无可用上传服务器: {data}")
-
-        # 优先使用 HTTPS 地址
-        for s in servers:
-            server = s.get('server', '')
-            if server.startswith('https://'):
-                logger.info(f"获取到上传域名: {server}")
-                return server.rstrip('/')
-
-        # 回退：使用第一个
-        server = servers[0].get('server', '').rstrip('/')
-        logger.info(f"获取到上传域名(HTTP): {server}")
-        return server
-
     # ---------- 文件上传 ----------
 
     def upload_file(self, remote_path: str, local_file: BinaryIO,
                     upload_domain: Optional[str] = None) -> Dict:
         """
-        上传文件（适用于 < 4GB 的文件）。
-        如果未提供 upload_domain，则自动获取。
-        """
-        if not upload_domain:
-            upload_domain = "https://c.pcs.baidu.com"
+        单次上传一个文件（适用于 < 4 GB）。
 
-        url = f"{upload_domain}/rest/2.0/pcs/file"
+        路径不做 percent-encoding：实测编码后百度会把 %2F 当字面量处理，
+        反而导致 403。
+        """
+        base = upload_domain or PCS_UPLOAD_BASE
+        url = f"{base}/rest/2.0/pcs/file"
         params = {
             'method': 'upload',
-            # 'path': quote(remote_path, safe=''),  # 移除 quote 调用
-            'path': remote_path,                     # 直接传递原始路径
+            'path': remote_path,
             'ondup': 'overwrite',
         }
         files = {'file': (remote_path.split('/')[-1], local_file)}
         return self._request('POST', url, params=params, files=files)
 
-    # ---------- 分片上传（大文件） ----------
-
-    def precreate(self, path: str, size: int, block_list: list) -> Dict:
-        """预创建大文件，返回 uploadid"""
-        url = f"{BAIDU_API_BASE}/file"
-        params = {
-            'method': 'precreate',
-            'path': quote(path, safe=''),
-            'size': size,
-            'block_list': json.dumps(block_list),
-            'isdir': '0',
-            'autoinit': '1',
-        }
-        return self._request('POST', url, params=params)
-
-    def upload_part(self, upload_id: str, part_seq: int,
-                    data: bytes, upload_domain: str) -> Dict:
-        """
-        上传分片（使用动态获取的域名）。
-        """
-        url = f"{upload_domain}/rest/2.0/pcs/superfile2"
-        params = {
-            'method': 'upload',
-            'type': 'tmpfile',
-            'uploadid': upload_id,
-            'partseq': part_seq,
-        }
-        files = {'file': (f'part_{part_seq}', data)}
-        return self._request('POST', url, params=params, files=files)
-
-    def create_file(self, upload_id: str) -> Dict:
-        """合并分片完成上传"""
-        url = f"{BAIDU_API_BASE}/file"
-        params = {
-            'method': 'create',
-            'uploadid': upload_id,
-        }
-        return self._request('POST', url, params=params)
-
-    # ---------- 其他操作 ----------
+    # ---------- 文件管理 ----------
     #
-    # 注意：这两个方法必须走 xpan 接口（/rest/2.0/xpan/file）。
-    # 老的 PCS 接口（/rest/2.0/pcs/file）只保留了上传相关 method，
+    # 这两个方法必须走 xpan 接口。老的 PCS 接口只保留了上传相关 method，
     # 用旧端点请求 list / delete 会直接返回 404。
 
     def list_files(self, remote_dir: str, limit: int = 1000) -> Dict:
@@ -205,7 +122,7 @@ class BaiduClient:
             'opera': 'delete',
             'async': '0',
         }
-        # 注意：filelist 必须放在 POST 请求体里。放在 query 里接口只回 errno 2。
+        # filelist 必须放在 POST 请求体里。放在 query 里接口只回 errno 2。
         data = {'filelist': json.dumps([remote_path], ensure_ascii=False)}
         result = self._request('POST', url, params=params, data=data)
 
