@@ -20,26 +20,38 @@ jobs:
           python-version: "3.10"
 
       - name: Install dependencies
+        shell: pwsh
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install -r requirements-dev.txt
           pip install -r requirements-gui.txt
           pip install pyinstaller
 
       - name: Run tests
-        run: python -m pytest -q
+        shell: pwsh
+        run: |
+          python -m pytest -q
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build executables
-        run: python -m PyInstaller packaging/streampack.spec --noconfirm --clean
+        shell: pwsh
+        run: |
+          python -m PyInstaller packaging/streampack.spec --noconfirm --clean
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Smoke test exe
+        shell: pwsh
         run: |
           .\dist\StreamPack\streampack.exe --help
+          if ($LASTEXITCODE -ne 0) { throw "streampack.exe --help 退出码 $LASTEXITCODE" }
           .\dist\StreamPack\streampack.exe --lang en config list
+          if ($LASTEXITCODE -ne 0) { throw "streampack.exe config list 退出码 $LASTEXITCODE" }
 
       - name: Package
+        shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
+          $tag = git describe --tags --always
           if (-not $tag) { $tag = "dev" }
           Compress-Archive -Path dist/StreamPack -DestinationPath "dist/StreamPack-$tag-win64.zip"
           Get-Item dist/*.zip | Select-Object Name, Length
@@ -47,7 +59,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StreamPack-${{ github.ref_name }}
+          name: StreamPack
           path: dist/*.zip
           retention-days: 30
 
