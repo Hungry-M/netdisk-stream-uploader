@@ -14,9 +14,11 @@ from PySide6.QtCore import QProcess, QTimer
 from PySide6.QtGui import QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
     QAbstractItemView, QApplication, QHBoxLayout, QLabel, QMainWindow,
-    QMessageBox, QPlainTextEdit, QPushButton, QTableView, QVBoxLayout, QWidget,
+    QMessageBox, QPlainTextEdit, QPushButton, QStyle, QTableView, QVBoxLayout,
+    QWidget,
 )
 
+from src.gui.theme import apply_theme, apply_window_effects
 from src.gui.viewmodel import TaskListViewModel
 
 COLUMNS = ["任务 ID", "名称", "状态", "进度", "目标"]
@@ -46,11 +48,16 @@ class MainWindow(QMainWindow):
         self.vm = viewmodel or TaskListViewModel()
         self._process: Optional[QProcess] = None
 
+        app = QApplication.instance()
+        self._dark = apply_theme(app) if app else False
+
         self.setWindowTitle("StreamPack — 分卷流式网盘上传")
         self.resize(920, 560)
 
         central = QWidget()
         layout = QVBoxLayout(central)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
 
         self.table = QTableView()
         self.model = TaskTableModel()
@@ -58,6 +65,10 @@ class MainWindow(QMainWindow):
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setShowGrid(False)
+        self.table.setAlternatingRowColors(True)
+        self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(32)
         self.table.horizontalHeader().setStretchLastSection(True)
         for column, width in enumerate((150, 150, 90, 110)):
             self.table.setColumnWidth(column, width)
@@ -65,16 +76,25 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.table)
 
         buttons = QHBoxLayout()
+        buttons.setSpacing(8)
         self.btn_refresh = QPushButton("刷新")
         self.btn_resume = QPushButton("续传")
         self.btn_volumes = QPushButton("查看分卷")
         self.btn_delete = QPushButton("删除记录")
-        for btn in (self.btn_refresh, self.btn_resume, self.btn_volumes, self.btn_delete):
+
+        for btn, pixmap in (
+            (self.btn_refresh, QStyle.StandardPixmap.SP_BrowserReload),
+            (self.btn_resume, QStyle.StandardPixmap.SP_MediaPlay),
+            (self.btn_volumes, QStyle.StandardPixmap.SP_FileDialogDetailedView),
+            (self.btn_delete, QStyle.StandardPixmap.SP_TrashIcon),
+        ):
+            btn.setIcon(self.style().standardIcon(pixmap))
             buttons.addWidget(btn)
         buttons.addStretch(1)
         layout.addLayout(buttons)
 
         self.status = QLabel("")
+        self.status.setObjectName("statusBar")
         layout.addWidget(self.status)
 
         self.log = QPlainTextEdit()
@@ -190,4 +210,5 @@ def run_gui(argv: Optional[List[str]] = None) -> int:
     app = QApplication.instance() or QApplication(sys.argv if argv is None else argv)
     window = MainWindow()
     window.show()
+    apply_window_effects(window, window._dark)
     return app.exec()

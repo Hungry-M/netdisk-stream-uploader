@@ -87,3 +87,20 @@ def test_show_volumes_handles_empty(window, monkeypatch):
     monkeypatch.setattr("src.gui.qt_app.QMessageBox", FakeBox)
     window.show_volumes()
     assert "还没有分卷记录" in captured["text"]
+
+
+def test_theme_applies_stylesheet(window):
+    """主题必须在窗口构造时就生效，否则会先闪一下默认样式"""
+    assert QApplication.instance().styleSheet()
+
+
+def test_theme_tables_have_no_grid(window):
+    assert window.table.showGrid() is False
+    assert window.table.alternatingRowColors() is True
+    assert window.table.verticalHeader().defaultSectionSize() == 32
+
+
+def test_is_dark_returns_bool(qapp):
+    from src.gui.theme import is_dark
+
+    assert isinstance(is_dark(qapp), bool)
