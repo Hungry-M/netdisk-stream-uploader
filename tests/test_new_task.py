@@ -10,6 +10,13 @@ from src.gui.new_task_dialog import (
 )
 
 
+def dismiss(dialog, app):
+    """关闭并让 Qt 真正回收，否则进程退出时会撞上析构竞态（0xC0000005）"""
+    dialog.close()
+    dialog.deleteLater()
+    app.processEvents()
+
+
 def test_collect_files_from_directory(tmp_path):
     root = tmp_path / "photos"
     (root / "sub").mkdir(parents=True)
@@ -90,7 +97,7 @@ def test_dialog_prefills_from_dropped_paths(qapp, tmp_path):
         assert "--files" in args and "1.jpg" in args
         assert "album" in args                       # 名称默认取目录名
     finally:
-        dialog.close()
+        dismiss(dialog, qapp)
 
 
 def test_dialog_ok_disabled_without_files(qapp):
@@ -102,4 +109,4 @@ def test_dialog_ok_disabled_without_files(qapp):
         ok = dialog._buttons.button(QDialogButtonBox.Ok)
         assert ok.isEnabled() is False
     finally:
-        dialog.close()
+        dismiss(dialog, qapp)

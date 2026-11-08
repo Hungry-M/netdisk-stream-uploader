@@ -12,6 +12,13 @@ def isolated_config(tmp_path, monkeypatch):
     return path
 
 
+def dismiss(dialog, app):
+    """关闭并让 Qt 真正回收，否则进程退出时会撞上析构竞态（0xC0000005）"""
+    dialog.close()
+    dialog.deleteLater()
+    app.processEvents()
+
+
 def test_defaults_produce_no_changes(qapp, isolated_config):
     from src.gui.settings_dialog import SettingsDialog
 
@@ -19,7 +26,7 @@ def test_defaults_produce_no_changes(qapp, isolated_config):
     try:
         changes = dialog.changes()
     finally:
-        dialog.close()
+        dismiss(dialog, qapp)
 
     # 全是默认值 => 每项都应是 None（表示 unset）
     assert set(changes.values()) == {None}
@@ -35,7 +42,7 @@ def test_changed_values_are_written(qapp, isolated_config):
         dialog.remote_edit.setText("/apps/Other")
         dialog._save()
     finally:
-        dialog.close()
+        dismiss(dialog, qapp)
 
     saved = json.loads(isolated_config.read_text(encoding="utf-8"))
     assert saved["theme"] == "dark"
@@ -51,7 +58,7 @@ def test_reverting_to_default_removes_key(qapp, isolated_config):
         dialog.theme_combo.setCurrentText("dark")
         dialog._save()
     finally:
-        dialog.close()
+        dismiss(dialog, qapp)
 
     assert "theme" in json.loads(isolated_config.read_text(encoding="utf-8"))
 
@@ -60,7 +67,7 @@ def test_reverting_to_default_removes_key(qapp, isolated_config):
         dialog.theme_combo.setCurrentText("auto")     # auto 是默认值
         dialog._save()
     finally:
-        dialog.close()
+        dismiss(dialog, qapp)
 
     assert "theme" not in json.loads(isolated_config.read_text(encoding="utf-8"))
 
@@ -76,7 +83,7 @@ def test_env_override_is_not_overwritten(qapp, isolated_config, monkeypatch):
         dialog.remote_edit.setText("/apps/FromDialog")
         dialog._save()
     finally:
-        dialog.close()
+        dismiss(dialog, qapp)
 
     assert not isolated_config.exists() or "remote_root" not in json.loads(
         isolated_config.read_text(encoding="utf-8")
