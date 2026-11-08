@@ -182,3 +182,44 @@ def test_trust_and_sign_warns_when_helper_missing(qapp, tmp_path, monkeypatch):
         assert "trust-sign.ps1" in captured["text"]
     finally:
         win.close()
+
+
+# ---------- 设置菜单 ----------
+
+def test_settings_menu_exists(window):
+    menus = [a.text() for a in window.menuBar().actions()]
+    assert "设置" in menus
+
+
+def test_settings_menu_actions(window):
+    assert window.action_new is not None
+    assert window.action_settings is not None
+    assert window.action_config is not None
+    assert window.action_data is not None
+    assert window.action_about is not None
+    assert window.action_new.shortcut().toString() == "Ctrl+N"
+
+
+def test_accepts_dropped_files(window):
+    """窗口要接受拖放，否则拖进来什么都不发生"""
+    assert window.acceptDrops() is True
+
+
+def test_cli_invocation_uses_python_from_source(tmp_path):
+    """源码运行时是 python main.py；打包后应换成同目录的 streampack.exe"""
+    import sys
+
+    from src.database.task_db import TaskDB
+    from src.gui.qt_app import MainWindow
+    from src.gui.viewmodel import TaskListViewModel
+
+    if hasattr(sys, "frozen"):
+        del sys.frozen
+    win = MainWindow(viewmodel=TaskListViewModel(db=TaskDB(db_path=str(tmp_path / "g4.db"))),
+                     refresh_ms=600000)
+    try:
+        program, prefix = win._cli_invocation()
+        assert program == sys.executable
+        assert prefix == ["main.py"]
+    finally:
+        win.close()

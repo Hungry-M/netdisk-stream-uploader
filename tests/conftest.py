@@ -7,6 +7,17 @@ from src.database.task_db import TaskDB
 from src.storage.local import LocalDirProvider
 
 
+@pytest.fixture(scope="session")
+def qapp():
+    """Qt 应用实例（offscreen）；没装 PySide6 时跳过相关用例。"""
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    pytest.importorskip("PySide6")
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance() or QApplication([])
+    yield app
+
+
 @pytest.fixture
 def temp_db(tmp_path):
     """使用临时文件路径的 TaskDB 实例"""

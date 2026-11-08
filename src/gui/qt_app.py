@@ -10,10 +10,10 @@ GUI 里再实现一遍：这样压缩/校验/重试只有一份实现，界面�
 import os
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
-from PySide6.QtCore import QProcess, QTimer
-from PySide6.QtGui import QIcon, QStandardItem, QStandardItemModel
+from PySide6.QtCore import QProcess, QTimer, QUrl
+from PySide6.QtGui import QDesktopServices, QIcon, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
     QAbstractItemView, QApplication, QHBoxLayout, QLabel, QMainWindow,
     QMessageBox, QPlainTextEdit, QPushButton, QStyle, QTableView, QVBoxLayout,
@@ -21,6 +21,9 @@ from PySide6.QtWidgets import (
 )
 
 from src.i18n import _
+from src.config.user_config import config_path
+from src.gui.new_task_dialog import NewTaskDialog, build_env
+from src.gui.settings_dialog import SettingsDialog
 from src.gui.theme import apply_theme, apply_window_effects
 from src.gui.viewmodel import TaskListViewModel
 from src.version import __version__
@@ -60,13 +63,14 @@ class MainWindow(QMainWindow):
         self._process: Optional[QProcess] = None
 
         app = QApplication.instance()
-        self._dark = apply_theme(app) if app else False
+        self._dark = apply_theme(app, _theme_preference()) if app else False
 
         self.setWindowTitle(f"StreamPack {__version__} — " + _("分卷流式网盘上传"))
         icon = _app_icon()
         if icon is not None:
             self.setWindowIcon(icon)
         self.resize(920, 560)
+        self.setAcceptDrops(True)          # 支持从资源管理器拖文件/文件夹进来
 
         central = QWidget()
         layout = QVBoxLayout(central)
@@ -131,21 +135,90 @@ class MainWindow(QMainWindow):
 
         self.refresh()
 
-    # ---------- 工具菜单 ----------
+    # ---------- 菜单 ----------
 
     def _build_tools_menu(self) -> None:
         """
-        「本地信任并签名」只在打包/安装后的界面里出现。
+        「设置」菜单：新建任务、配置入口、以及仅打包后出现的自签名。
 
-        源码运行时签名对象是 python.exe，没有意义，所以隐藏。
+        自签名只在打包/安装后的界面里出现——源码运行时签的是 python.exe，没有意义。
         """
+        menu = self.menuBar().addMenu(_("设置"))
+
+        self.action_new = menu.addAction(_("新建上传任务…"))
+        self.action_new.setShortcut("Ctrl+N")
+        self.action_new.triggered.connect(self.new_task)
+
+        menu.addSeparator()
+
+        self.action_settings = menu.addAction(_("设置…"))
+        self.action_settings.triggered.connect(self.open_settings)
+
+        self.action_config = menu.addAction(_("打开配置文件"))
+        self.action_config.triggered.connect(lambda: self._open_path(config_path()))
+
+        self.action_data = menu.addAction(_("打开数据目录"))
+        self.action_data.triggered.connect(
+            lambda: self._open_path(Path.home() / ".netdisk_uploader")
+        )
+
         self.action_trust = None
-        if not getattr(sys, "frozen", False):
+        if getattr(sys, "frozen", False):
+            menu.addSeparator()
+            self.action_trust = menu.addAction(_("本地信任并签名（仅本机）…"))
+            self.action_trust.triggered.connect(self.trust_and_sign)
+
+        menu.addSeparator()
+        self.action_about = menu.addAction(_("关于"))
+        self.action_about.triggered.connect(self.show_about)
+
+    @staticmethod
+    def _open_path(path: Path) -> None:
+        path = Path(path)
+        if not path.exists():
+            path = path.parent
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+
+    def show_about(self) -> None:
+        QMessageBox.information(
+            self, _("关于"),
+            _f("StreamPack {0}\n\n分卷流式压缩并上传网盘。\n"
+               "数据目录：{1}", __version__, Path.home() / ".netdisk_uploader"),
+        )
+
+    def open_settings(self) -> None:
+        dialog = SettingsDialog(self)
+        if dialog.exec() == dialog.Accepted:
+            QMessageBox.information(
+                self, _("设置"),
+                _("已保存。语言和主题的改动在下次启动时生效。"),
+            )
+
+    # ---------- 新建任务 ----------
+
+    def new_task(self, preset_paths=None) -> None:
+        """打开新建任务对话框；也可以从拖放带入路径。"""
+        if self._process is not None and self._process.state() != QProcess.NotRunning:
+            QMessageBox.information(self, _("新建上传任务"), _("已有任务在运行，等它结束"))
             return
 
-        tools = self.menuBar().addMenu(_("工具"))
-        self.action_trust = tools.addAction(_("本地信任并签名（仅本机）…"))
-        self.action_trust.triggered.connect(self.trust_and_sign)
+        dialog = NewTaskDialog(self, preset_paths=preset_paths)
+        if dialog.exec() != dialog.Accepted:
+            return
+
+        values = dialog.values()
+        self._run_cli(dialog.to_args(), env=build_env(str(values.get("password") or "")))
+
+    # ---------- 拖放 ----------
+
+    def dragEnterEvent(self, event) -> None:
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event) -> None:
+        paths = [Path(u.toLocalFile()) for u in event.mimeData().urls() if u.isLocalFile()]
+        if paths:
+            self.new_task(preset_paths=paths)
 
     def trust_and_sign(self) -> None:
         """
@@ -255,13 +328,40 @@ class MainWindow(QMainWindow):
 
     # ---------- 子进程 ----------
 
-    def _run_cli(self, args: List[str]) -> None:
-        self._append_log("$ python main.py " + " ".join(args))
+    def _cli_invocation(self) -> Optional[Tuple[str, List[str]]]:
+        """
+        打包后调同目录的 streampack.exe；源码运行用 python main.py。
+
+        之前直接写死 `sys.executable + ["main.py"]`，打包后等于让 GUI exe
+        去执行一个叫 main.py 的参数，续传按钮会静默失败。
+        """
+        if getattr(sys, "frozen", False):
+            exe = Path(sys.executable).parent / "streampack.exe"
+            return (str(exe), []) if exe.is_file() else None
+        return (sys.executable, ["main.py"])
+
+    def _run_cli(self, args: List[str], env: Optional[dict] = None) -> None:
+        invocation = self._cli_invocation()
+        if invocation is None:
+            self._append_log(_("找不到 streampack.exe，无法执行命令行任务"))
+            return
+
+        program, prefix = invocation
+        self._append_log("$ " + " ".join([Path(program).name] + prefix + args))
+
         self._process = QProcess(self)
         self._process.setProcessChannelMode(QProcess.MergedChannels)
+        if env is not None:
+            from PySide6.QtCore import QProcessEnvironment
+
+            qenv = QProcessEnvironment()
+            for key, value in env.items():
+                qenv.insert(key, value)
+            self._process.setProcessEnvironment(qenv)
+
         self._process.readyReadStandardOutput.connect(self._drain_output)
         self._process.finished.connect(self._on_finished)
-        self._process.start(sys.executable, ["main.py"] + args)
+        self._process.start(program, prefix + args)
 
     def _drain_output(self) -> None:
         if not self._process:
@@ -278,6 +378,16 @@ class MainWindow(QMainWindow):
             return
         for line in text.splitlines():
             self.log.appendPlainText(line)
+
+
+def _theme_preference() -> str:
+    """读配置里的主题偏好；配置坏了也不能挡住界面启动。"""
+    try:
+        from src.config.user_config import build_settings
+
+        return str(build_settings().theme or "auto")
+    except Exception:
+        return "auto"
 
 
 def run_gui(argv: Optional[List[str]] = None) -> int:

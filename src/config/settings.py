@@ -74,6 +74,9 @@ class ResourceSettings:
     # "auto" 按系统区域判断；也可写 "zh" / "en"
     language: str = "auto"
 
+    # 界面主题："auto" 跟随系统；也可写 "light" / "dark"
+    theme: str = "auto"
+
     # ----- 通用配置 -----
     # 临时文件前缀（便于识别和清理）
     temp_file_prefix: str = "netdisk_upload_"

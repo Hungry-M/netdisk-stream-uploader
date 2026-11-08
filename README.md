@@ -149,7 +149,13 @@ pip install -r requirements-gui.txt   # PySide6-Essentials only, no QtWebEngine
 python main.py --gui
 ```
 
-The window shows the task list with progress, per-volume details, resume, delete, and a live log pane. The resume button runs `python main.py resume <id>` under the hood — the exact same logic as the CLI.
+The window shows the task list with progress, per-volume details, resume, delete, and a live log pane.
+
+**New task**: **Settings → New upload task…** (`Ctrl+N`), or just **drag files/folders into the window**. The dialog takes a name, remote folder, volume size and an optional encryption password; pick the `local` backend to rehearse offline.
+
+**Settings**: **Settings → Settings…** changes the UI language (auto/zh/en), theme (auto/light/dark), default remote folder and per-volume retries, plus "open config file" / "open data folder".
+
+Everything the UI does ends up in the same CLI: a new task launches `streampack.exe upload …`, resume launches `resume <id>`, so behaviour is identical to the command line.
 
 ### Delete task records
 
@@ -194,6 +200,13 @@ Configuration resolves in this order (highest first):
 1. environment variables `STREAMPACK_<FIELD NAME>`
 2. the user config file `~/.netdisk_uploader/config.json`
 3. code defaults in `src/config/settings.py`
+
+There is **no `config.ini`** — the file is JSON at `%USERPROFILE%\.netdisk_uploader\config.json` (override with `STREAMPACK_CONFIG`). It only stores options you changed explicitly, so:
+
+- never changed anything → the file does not exist, and that is normal
+- changed something → only those keys appear in it
+
+`python main.py config path` prints the location; **Settings → Open config file** opens it.
 
 Manage it with the `config` command — no source edits needed:
 

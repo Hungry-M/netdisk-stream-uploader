@@ -132,9 +132,19 @@ def is_dark(app) -> bool:
         return False
 
 
-def apply_theme(app) -> bool:
-    """应用 Fusion + QSS，返回是否为深色。"""
+def apply_theme(app, preference: str = "auto") -> bool:
+    """
+    应用 Fusion + QSS，返回是否为深色。
+
+    preference: "auto" 跟随系统；"light" / "dark" 强制。
+    """
     dark = is_dark(app)
+    pref = (preference or "auto").strip().lower()
+    if pref == "dark":
+        dark = True
+    elif pref == "light":
+        dark = False
+
     try:
         app.setStyle("Fusion")
         app.setStyleSheet(DARK_QSS if dark else LIGHT_QSS)

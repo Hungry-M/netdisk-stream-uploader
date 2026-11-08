@@ -464,3 +464,152 @@ msgstr "Paused"
 #: src\gui\viewmodel.py:28
 msgid "已中断"
 msgstr "Interrupted"
+
+#: src\gui\qt_app.py:185
+msgid "StreamPack {0}\n\n分卷流式压缩并上传网盘。\n数据目录：{1}"
+msgstr "StreamPack {0}\n\nStreaming volume compression with netdisk upload.\nData directory: {1}"
+
+#: src\gui\new_task_dialog.py:171
+msgid "{0} 个文件，源目录 {1}"
+msgstr "{0} files, source directory {1}"
+
+#: src\gui\qt_app.py:172
+msgid "关于"
+msgstr "About"
+
+#: src\gui\new_task_dialog.py:129
+msgid "内容"
+msgstr "Content"
+
+#: src\gui\new_task_dialog.py:132
+msgid "分卷大小"
+msgstr "Volume size"
+
+#: src\gui\new_task_dialog.py:133
+msgid "加密口令"
+msgstr "Encryption password"
+
+#: src\gui\settings_dialog.py:57
+msgid "单卷重试次数"
+msgstr "Retries per volume"
+
+#: src\gui\new_task_dialog.py:107
+msgid "压缩包名称（不含扩展名）"
+msgstr "Archive name (without extension)"
+
+#: src\gui\new_task_dialog.py:125
+msgid "同名任务已存在时续传"
+msgstr "Resume if a task with the same name exists"
+
+#: src\gui\new_task_dialog.py:134
+msgid "存储后端"
+msgstr "Storage backend"
+
+#: src\gui\qt_app.py:238
+msgid "将在当前 Windows 用户下执行：\n\n· 创建或复用一个本地根证书 CN=Hungry-M\n· 签发项目子证书 CN=StreamPack\n· 把根加入「受信任的根证书颁发机构」、子证书加入「受信任的发布者」\n· 给本程序签名，然后重新打开\n\n仅对本机当前用户有效，其他电脑不信任；\n这不是公共 CA 签名，不改变 SmartScreen 信誉。\n\n签名期间程序会关闭，完成后自动重新打开。"
+msgstr "This will run for the current Windows user:\n\n· create or reuse a local root certificate CN=Hungry-M\n· issue the project child certificate CN=StreamPack\n· add the root to \"Trusted Root Certification Authorities\" and the child to \"Trusted Publishers\"\n· sign this program, then reopen it\n\nValid only for the current user on this machine; other computers do not trust it.\nThis is not a public CA signature and does not change SmartScreen reputation.\n\nThe program closes while signing and reopens when done."
+
+#: src\gui\qt_app.py:194
+msgid "已保存。语言和主题的改动在下次启动时生效。"
+msgstr "Saved. Language and theme changes take effect on the next launch."
+
+#: src\gui\qt_app.py:160
+msgid "打开数据目录"
+msgstr "Open data folder"
+
+#: src\gui\qt_app.py:157
+msgid "打开配置文件"
+msgstr "Open config file"
+
+#: src\gui\qt_app.py:346
+msgid "找不到 streampack.exe，无法执行命令行任务"
+msgstr "streampack.exe not found; cannot run the CLI task"
+
+#: src\gui\qt_app.py:234
+msgid "找不到 trust-sign.ps1，无法签名。\n预计位置：{0}"
+msgstr "trust-sign.ps1 not found; cannot sign.\nExpected at: {0}"
+
+#: src\gui\new_task_dialog.py:85
+msgid "新建上传任务"
+msgstr "New upload task"
+
+#: src\gui\qt_app.py:148
+msgid "新建上传任务…"
+msgstr "New upload task…"
+
+#: src\gui\qt_app.py:259
+msgid "无法启动签名 helper。"
+msgstr "Could not start the signing helper."
+
+#: src\gui\qt_app.py:233
+msgid "本地信任并签名"
+msgstr "Trust and sign locally"
+
+#: src\gui\qt_app.py:168
+msgid "本地信任并签名（仅本机）…"
+msgstr "Trust and sign locally (this machine only)…"
+
+#: src\gui\new_task_dialog.py:168
+msgid "没有找到可打包的文件"
+msgstr "No files to archive"
+
+#: src\gui\settings_dialog.py:55
+msgid "界面主题"
+msgstr "Theme"
+
+#: src\gui\settings_dialog.py:54
+msgid "界面语言"
+msgstr "Language"
+
+#: src\gui\new_task_dialog.py:118
+msgid "留空则不加密"
+msgstr "Leave empty to skip encryption"
+
+#: src\gui\new_task_dialog.py:131
+msgid "网盘目录"
+msgstr "Remote folder"
+
+#: src\gui\qt_app.py:146
+msgid "设置"
+msgstr "Settings"
+
+#: src\gui\qt_app.py:154
+msgid "设置…"
+msgstr "Settings…"
+
+#: src\gui\new_task_dialog.py:186
+msgid "请填写压缩包名称"
+msgstr "Enter an archive name"
+
+#: src\gui\new_task_dialog.py:93
+msgid "还没有选择文件"
+msgstr "No files selected yet"
+
+#: src\gui\new_task_dialog.py:183
+msgid "还没有选择要打包的内容"
+msgstr "No content selected"
+
+#: src\gui\new_task_dialog.py:97
+msgid "选择文件…"
+msgstr "Choose files…"
+
+#: src\gui\new_task_dialog.py:96
+msgid "选择文件夹…"
+msgstr "Choose folder…"
+
+#: src\gui\new_task_dialog.py:160
+msgid "选择要打包的文件"
+msgstr "Select files to archive"
+
+#: src\gui\new_task_dialog.py:155
+msgid "选择要打包的文件夹"
+msgstr "Select a folder to archive"
+
+#: src\gui\settings_dialog.py:59
+msgid "配置文件：{0}"
+msgstr "Config file: {0}"
+
+#: src\gui\settings_dialog.py:56
+msgid "默认网盘目录"
+msgstr "Default remote folder"
+

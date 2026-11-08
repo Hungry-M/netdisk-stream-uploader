@@ -28,10 +28,10 @@ def draw(size: int) -> Image.Image:
     radius = int(s * 0.22)
     d.rounded_rectangle([0, 0, s - 1, s - 1], radius=radius, fill=ACCENT)
 
-    # 三条横杠：上中下，宽度递减，模拟"一层层的分卷"
-    bar_h = max(int(s * 0.11), 2 * scale)
-    gap = int(s * 0.10)
-    widths = [0.52, 0.40, 0.28]
+    # 16/24px 上三条杠会糊成一团，改成两条更粗的
+    widths = [0.54, 0.34] if size <= 24 else [0.52, 0.40, 0.28]
+    bar_h = max(int(s * (0.16 if size <= 24 else 0.11)), 2 * scale)
+    gap = int(s * (0.12 if size <= 24 else 0.10))
     total = len(widths) * bar_h + (len(widths) - 1) * gap
     y = (s - total) // 2
 

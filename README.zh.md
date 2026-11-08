@@ -149,7 +149,13 @@ pip install -r requirements-gui.txt   # 只装 PySide6-Essentials，不含 QtWeb
 python main.py --gui
 ```
 
-窗口里能看任务列表与进度、查看分卷明细、续传、删除记录，底部是实时日志。续传按钮背后调的是 `python main.py resume <id>`，与命令行完全同一套逻辑。
+窗口里能看任务列表与进度、查看分卷明细、续传、删除记录，底部是实时日志。
+
+**新建任务**：菜单 **设置 → 新建上传任务…**（`Ctrl+N`），或者直接把文件/文件夹**拖进窗口**。对话框里填名称、网盘目录、分卷大小、可选加密口令，选 `local` 后端就能离线预演。
+
+**设置**：菜单 **设置 → 设置…**，可以改界面语言（auto/zh/en）、主题（auto/light/dark）、默认网盘目录、单卷重试次数；还有"打开配置文件""打开数据目录"两个入口。
+
+界面上的所有操作最终都调同一套命令行：新建任务起的是 `streampack.exe upload …`，续传起的是 `resume <id>`，所以行为和 CLI 完全一致。
 
 ### 删除任务记录
 
@@ -194,6 +200,13 @@ python main.py --gui                     # 图形界面
 1. 环境变量 `STREAMPACK_<字段名大写>`
 2. 用户配置文件 `~/.netdisk_uploader/config.json`
 3. `src/config/settings.py` 里的代码默认值
+
+**没有 `config.ini`**，配置文件是 JSON，路径固定为 `%USERPROFILE%\.netdisk_uploader\config.json`（可用环境变量 `STREAMPACK_CONFIG` 覆盖）。它只保存你**显式改过**的项，所以：
+
+- 从没改过任何设置 → 这个文件不存在，这是正常的
+- 改了之后 → 文件里只会出现改动过的那几行
+
+想看路径就 `python main.py config path`，想直接打开就点界面里 **设置 → 打开配置文件**。
 
 用 `config` 命令管理，不需要改源码：
 

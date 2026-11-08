@@ -104,6 +104,7 @@ SPECS: Dict[str, Tuple[str, Any, str]] = {
     "local_rehearsal_dir": ("str", _parse_str, "provider=local 时的落盘根目录"),
     "remote_root": ("str", _parse_str, "默认上传目录，通常是 /apps/<你的应用名>"),
     "language": ("str", _parse_str, "界面语言：auto / zh / en"),
+    "theme": ("str", _parse_str, "界面主题：auto / light / dark"),
     "temp_file_prefix": ("str", _parse_str, "临时分卷文件名前缀"),
 }
 
