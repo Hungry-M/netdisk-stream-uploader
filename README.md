@@ -318,7 +318,7 @@ A running exe cannot sign itself (the file is locked), so the app hands its PID 
 **This is local-only**: distributing the signed build does not help anyone else — their machines do not trust your certificate and will report an invalid one. To verify a download instead, compare with `SHA256SUMS.txt` in the release:
 
 ```powershell
-Get-FileHash .\StreamPack-v0.9.0-win64.zip -Algorithm SHA256
+Get-FileHash .\StreamPack-v0.7.0-win64.zip -Algorithm SHA256
 ```
 
 To remove the trust again:
