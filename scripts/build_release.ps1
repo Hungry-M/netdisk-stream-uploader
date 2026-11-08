@@ -1,4 +1,4 @@
-# scripts/build_release.ps1
+﻿# scripts/build_release.ps1
 #
 # 打包成可分发的目录并压缩：
 #     dist/StreamPack/                <- 直接可运行
@@ -31,10 +31,12 @@ $outDir = Join-Path $root "dist/StreamPack"
 if (-not (Test-Path $outDir)) { throw "没有生成 $outDir" }
 
 Write-Host "== 自检 =="
-& "$outDir/streampack.exe" --version-check 2>$null | Out-Null
 & "$outDir/streampack.exe" --lang zh --help | Out-Null
-if ($LASTEXITCODE -ne 0) { throw "streampack.exe --help 执行失败" }
-Write-Host "   exe 可执行"
+if ($LASTEXITCODE -ne 0) { throw "streampack.exe --help 执行失败（exit $LASTEXITCODE）" }
+
+& "$outDir/streampack.exe" --lang en config list | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "streampack.exe config list 执行失败（exit $LASTEXITCODE）" }
+Write-Host "   exe 可执行，翻译目录已进包"
 
 Write-Host "== 压缩 =="
 $zip = Join-Path $root "dist/StreamPack-$version-win64.zip"

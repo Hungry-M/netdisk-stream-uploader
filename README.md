@@ -266,6 +266,41 @@ Pushing a `v*` tag makes GitHub Actions run the tests, build the executables and
 
 > This is a portable folder, not an MSI installer. A real installer would need Inno Setup or NSIS wrapped around it.
 
+### Running the download
+
+1. **Extract it first** — double-clicking an exe inside the archive will not find the sibling `_internal` folder
+2. `streampack-gui.exe` opens the GUI; `streampack.exe` is the command line
+3. On first run, enter your Baidu AppKey / SecretKey, then authorize in the browser and paste the code
+
+**About "Unknown publisher"**: the build is not code-signed, so SmartScreen warns once — click "More info → Run anyway".
+
+A self-signed certificate **only helps on your own machine**: sign with it, import the certificate into "Trusted Root Certification Authorities", and the warning disappears and your publisher name shows. It does not survive distribution — other machines do not trust your certificate, so they still warn, and usually report an invalid certificate, which is worse than not signing. For public distribution you either buy an OV/EV code-signing certificate or accept the prompt and let people verify the download:
+
+```powershell
+Get-FileHash .\StreamPack-v0.6.3-win64.zip -Algorithm SHA256
+# compare with SHA256SUMS.txt in the release
+```
+
+If you would rather not run an exe at all, the source works the same way:
+
+```bash
+pip install -r requirements.txt -r requirements-gui.txt
+python main.py --gui
+```
+
+### Uninstalling
+
+This is a portable folder with no installer, so there is no uninstaller. It only leaves things in two places:
+
+1. Delete the extracted `StreamPack` folder
+2. Delete `%USERPROFILE%\.netdisk_uploader\` — credentials, token, task database and config all live there
+
+```powershell
+Remove-Item "$env:USERPROFILE\.netdisk_uploader" -Recurse -Force
+```
+
+Files already uploaded to the netdisk are **not** deleted; remove those in the netdisk itself.
+
 ## FAQ
 
 **`invalid_client` during authorization**

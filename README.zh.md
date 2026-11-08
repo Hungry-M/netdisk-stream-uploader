@@ -266,6 +266,41 @@ pwsh -File scripts/build_release.ps1
 
 > 这是免安装的绿色包，不是 MSI 安装程序。要做真正的安装包，需要用 Inno Setup 或 NSIS 再包一层。
 
+### 下载后怎么运行
+
+1. **先解压**（不要在压缩包里直接双击 exe，否则找不到同目录的 `_internal`）
+2. `streampack-gui.exe` 双击开图形界面；`streampack.exe` 在终端里跑命令行
+3. 首次运行填百度 AppKey / SecretKey，然后浏览器授权、粘贴授权码
+
+**关于「未知发布者」**：发布包没有代码签名，Windows SmartScreen 会拦一次，点「更多信息 → 仍要运行」即可。
+
+自签名证书**只对本机有效**：签名后把证书导入「受信任的根证书颁发机构」，本机就不再提示，还会显示你的发布者名。但它随包分发没用——别人机器上没有你的证书，照样提示，而且多半会变成「证书无效」，比不签更劝退。对外发布要么买 OV/EV 代码签名证书，要么接受提示、用校验值自证完整性。要核对文件有没有被动过：
+
+```powershell
+Get-FileHash .\StreamPack-v0.6.3-win64.zip -Algorithm SHA256
+# 与 Release 里的 SHA256SUMS.txt 比对
+```
+
+不想碰 exe 的话，从源码跑也一样：
+
+```bash
+pip install -r requirements.txt -r requirements-gui.txt
+python main.py --gui
+```
+
+### 卸载
+
+这是绿色包，没有安装程序，所以也没有卸载程序。它只在自己身上留过东西：
+
+1. 删掉解压出来的 `StreamPack` 文件夹
+2. 删掉 `%USERPROFILE%\.netdisk_uploader\` —— 凭证、令牌、任务数据库、配置文件都在这里
+
+```powershell
+Remove-Item "$env:USERPROFILE\.netdisk_uploader" -Recurse -Force
+```
+
+网盘上已上传的文件**不会被删**，需要的话得去网盘里自己清。
+
 ## 常见问题
 
 **授权时报 `invalid_client`**

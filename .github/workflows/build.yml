@@ -56,18 +56,32 @@ jobs:
           Compress-Archive -Path dist/StreamPack -DestinationPath "dist/StreamPack-$tag-win64.zip"
           Get-Item dist/*.zip | Select-Object Name, Length
 
+      - name: Checksums
+        shell: pwsh
+        run: |
+          $lines = Get-ChildItem dist/*.zip | ForEach-Object {
+            $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$h  $($_.Name)"
+          }
+          $lines | Out-File -FilePath dist/SHA256SUMS.txt -Encoding ascii
+          Get-Content dist/SHA256SUMS.txt
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: StreamPack
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/SHA256SUMS.txt
           retention-days: 30
 
       - name: Create release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.zip
+          files: |
+            dist/*.zip
+            dist/SHA256SUMS.txt
           generate_release_notes: true
           draft: false
           prerelease: false
