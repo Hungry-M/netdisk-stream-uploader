@@ -77,6 +77,24 @@ jobs:
           .\dist\StreamPack\streampack.exe --lang en config list
           if ($LASTEXITCODE -ne 0) { throw "streampack.exe config list 退出码 $LASTEXITCODE" }
 
+      - name: Stage portable extras
+        shell: pwsh
+        run: |
+          $dst = "dist/StreamPack"
+          Copy-Item README.md, README.zh.md, LICENSE -Destination $dst -Force
+          Copy-Item scripts/cleanup.ps1, scripts/cleanup.cmd -Destination $dst -Force
+          Copy-Item scripts/uninstall.ps1, scripts/uninstall.cmd -Destination $dst -Force
+          Get-ChildItem $dst -File | Select-Object Name, Length
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $version = (python -c "from src.version import __version__; print(__version__)").Trim()
+          $env:STREAMPACK_VERSION = $version
+          python -m PyInstaller packaging/installer.spec --noconfirm --clean
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-Item dist/StreamPack-Setup-*.exe | Select-Object Name, Length
+
       - name: Package
         shell: pwsh
         run: |
@@ -88,7 +106,8 @@ jobs:
       - name: Checksums
         shell: pwsh
         run: |
-          $lines = Get-ChildItem dist/*.zip | ForEach-Object {
+          $files = Get-ChildItem dist/*.zip, dist/StreamPack-Setup-*.exe
+          $lines = $files | ForEach-Object {
             $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
             "$h  $($_.Name)"
           }
@@ -101,6 +120,7 @@ jobs:
           name: StreamPack
           path: |
             dist/*.zip
+            dist/StreamPack-Setup-*.exe
             dist/SHA256SUMS.txt
           retention-days: 30
 
@@ -110,6 +130,7 @@ jobs:
         with:
           files: |
             dist/*.zip
+            dist/StreamPack-Setup-*.exe
             dist/SHA256SUMS.txt
           generate_release_notes: true
           draft: false

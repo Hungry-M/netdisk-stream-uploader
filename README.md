@@ -260,13 +260,27 @@ Output:
 | Path | Purpose |
 |:---|:---|
 | `dist/StreamPack/` | Runnable as-is, no installation |
-| `dist/StreamPack-<version>-win64.zip` | What you hand to other people |
+| `dist/StreamPack-<version>-win64.zip` | Portable package, unzip and run |
+| `dist/StreamPack-Setup-<version>.exe` | Installer, the recommended option for end users |
 
 The folder holds two entry points: `streampack.exe` (command line, keeps the console so logs are visible) and `streampack-gui.exe` (GUI, no console window). Both share the dependencies in `_internal/`.
 
-Pushing a `v*` tag makes GitHub Actions run the tests, build the executables and create a release (`.github/workflows/build.yml`) — nothing needs to be installed locally.
+**Ship only the installer and the portable package** — a bare exe cannot run without its `_internal/` folder.
 
-> This is a portable folder, not an MSI installer. A real installer would need Inno Setup or NSIS wrapped around it.
+Pushing a `v*` tag makes GitHub Actions run the tests, build both artifacts and create a release (`.github/workflows/build.yml`) — nothing needs to be installed locally.
+
+### Installing
+
+Double-click `StreamPack-Setup-<version>.exe`. It installs into `%LOCALAPPDATA%\Programs\StreamPack` — **no administrator rights needed** — and creates a Start Menu shortcut plus an entry under Settings → Apps.
+
+Silent install (for scripts):
+
+```powershell
+.\StreamPack-Setup-0.7.0.exe --silent --result-file install.json
+# {"ok": true, "version": "0.7.0", "install_dir": "...", "copied": 7}
+```
+
+Options: `--dir <path>` to change the location, `--no-shortcut` to skip the shortcut. On failure the exit code is 1 and the result file carries an `error` field.
 
 ### Running the download
 
@@ -292,7 +306,9 @@ python main.py --gui
 
 ### Uninstalling
 
-This is a portable folder with no installer, so there is no uninstaller. It only leaves things in two places:
+**Installed version**: Settings → Apps → StreamPack, or run `uninstall.cmd` in the install directory. Credentials and the task database are kept by default; add `-PurgeData` to remove them too.
+
+**Portable version**: no installer, so no uninstaller. It only leaves things in two places:
 
 1. Delete the extracted `StreamPack` folder
 2. Delete `%USERPROFILE%\.netdisk_uploader\` — credentials, token, task database and config all live there

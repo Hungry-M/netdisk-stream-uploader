@@ -17,6 +17,7 @@ _rehearsal/
 
 # 打包产物
 build/
+build-*/
 dist/
 
 # 开发者本地备份

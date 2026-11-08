@@ -260,13 +260,27 @@ pwsh -File scripts/build_release.ps1
 | 路径 | 用途 |
 |:---|:---|
 | `dist/StreamPack/` | 可直接运行，免安装 |
-| `dist/StreamPack-<版本>-win64.zip` | 分发给别人用 |
+| `dist/StreamPack-<版本>-win64.zip` | 便携包，解压即用 |
+| `dist/StreamPack-Setup-<版本>.exe` | 安装器，推荐给普通用户 |
 
-目录里有两个入口：`streampack.exe`（命令行，保留控制台看日志）和 `streampack-gui.exe`（图形界面，无控制台窗口）。两者共用 `_internal/` 里的依赖。
+便携包里有两个入口：`streampack.exe`（命令行，保留控制台看日志）和 `streampack-gui.exe`（图形界面，无控制台窗口）。两者共用 `_internal/` 里的依赖。
 
-推 `v*` tag 时，GitHub Actions 会自动跑测试、打包并建 Release（见 `.github/workflows/build.yml`），不需要在本地装任何东西。
+**对普通用户只发安装器和便携包**，不要单独发某个 exe——它离了 `_internal/` 跑不起来。
 
-> 这是免安装的绿色包，不是 MSI 安装程序。要做真正的安装包，需要用 Inno Setup 或 NSIS 再包一层。
+推 `v*` tag 时，GitHub Actions 会自动跑测试、打包、生成安装器并建 Release（见 `.github/workflows/build.yml`），不需要在本地装任何东西。
+
+### 安装
+
+双击 `StreamPack-Setup-<版本>.exe`，装到 `%LOCALAPPDATA%\Programs\StreamPack`，**不需要管理员权限**，同时创建开始菜单快捷方式和「设置 → 应用」里的卸载项。
+
+静默安装（适合脚本）：
+
+```powershell
+.\StreamPack-Setup-0.7.0.exe --silent --result-file install.json
+# 结果：{"ok": true, "version": "0.7.0", "install_dir": "...", "copied": 7}
+```
+
+可选参数：`--dir <路径>` 改安装位置，`--no-shortcut` 不建快捷方式。失败时退出码为 1，`--result-file` 里会带 `error`。
 
 ### 下载后怎么运行
 
@@ -292,7 +306,9 @@ python main.py --gui
 
 ### 卸载
 
-这是绿色包，没有安装程序，所以也没有卸载程序。它只在自己身上留过东西：
+**安装版**：Windows 设置 → 应用 → StreamPack，或运行安装目录里的 `uninstall.cmd`。默认保留凭证和任务库，加 `-PurgeData` 一并删除。
+
+**便携版**：没有安装程序，所以也没有卸载程序。它只在自己身上留过东西：
 
 1. 删掉解压出来的 `StreamPack` 文件夹
 2. 删掉 `%USERPROFILE%\.netdisk_uploader\` —— 凭证、令牌、任务数据库、配置文件都在这里

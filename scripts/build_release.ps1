@@ -57,7 +57,9 @@ $extras = @(
     "README.zh.md",
     "LICENSE",
     "scripts\cleanup.ps1",
-    "scripts\cleanup.cmd"
+    "scripts\cleanup.cmd",
+    "scripts\uninstall.ps1",
+    "scripts\uninstall.cmd"
 )
 foreach ($f in $extras) {
     if (Test-Path $f) {
@@ -67,6 +69,14 @@ foreach ($f in $extras) {
         Write-Host "   ! 缺失: $f"
     }
 }
+
+Write-Host "== 安装器 =="
+$env:STREAMPACK_VERSION = $version.TrimStart('v')
+python -m PyInstaller packaging/installer.spec --noconfirm --clean --distpath dist --workpath build-installer
+if ($LASTEXITCODE -ne 0) { throw "安装器构建失败（exit $LASTEXITCODE）" }
+$setup = Get-ChildItem "dist/StreamPack-Setup-*.exe" | Select-Object -First 1
+if (-not $setup) { throw "没有生成安装器" }
+Write-Host "   $($setup.Name) ($([math]::Round($setup.Length / 1MB, 1)) MB)"
 
 Write-Host "== 压缩 =="
 $zip = Join-Path $root "dist/StreamPack-$version-win64.zip"
