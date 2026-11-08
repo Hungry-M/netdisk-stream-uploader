@@ -297,6 +297,16 @@ python main.py --gui
 1. 删掉解压出来的 `StreamPack` 文件夹
 2. 删掉 `%USERPROFILE%\.netdisk_uploader\` —— 凭证、令牌、任务数据库、配置文件都在这里
 
+包里带了 `cleanup.cmd`：双击它只**预览**会删什么，确认后加参数执行：
+
+```cmd
+cleanup.cmd -Yes
+```
+
+它只删能证明属于本应用的文件（靠 `credentials.json` / `token.json` / `tasks.db` / `config.json` 这几个标记判断），不按目录名扫，不杀进程，也不碰证书——证书要用 `trust-sign.ps1 -RemoveCert` 单独清理。
+
+手动删也一样，就两行：
+
 ```powershell
 Remove-Item "$env:USERPROFILE\.netdisk_uploader" -Recurse -Force
 ```

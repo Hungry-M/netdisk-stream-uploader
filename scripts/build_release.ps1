@@ -1,4 +1,4 @@
-# scripts/build_release.ps1
+﻿# scripts/build_release.ps1
 #
 # 打包成可分发的目录并压缩：
 #     dist/StreamPack/                <- 直接可运行
@@ -16,7 +16,9 @@ Set-Location $root
 
 Write-Host "== 版本 =="
 $codeVersion = (python -c "from src.version import __version__; print(__version__)").Trim()
-$exactTag = (git describe --tags --exact-match 2>$null)
+# 用 tag --points-at 而不是 describe --exact-match：后者在没 tag 时往 stderr 打字，
+# 配合 Stop 策略会直接打断脚本
+$exactTag = (git tag --points-at HEAD | Select-Object -First 1)
 if ($exactTag) {
     if ($exactTag.TrimStart('v') -ne $codeVersion) {
         throw "版本不一致：tag=$exactTag，src/version.py=$codeVersion"
@@ -47,6 +49,24 @@ if ($LASTEXITCODE -ne 0) { throw "streampack.exe --help 执行失败（exit $LAS
 & "$outDir/streampack.exe" --lang en config list | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "streampack.exe config list 执行失败（exit $LASTEXITCODE）" }
 Write-Host "   exe 可执行，翻译目录已进包"
+
+Write-Host "== 附带文件 =="
+# 便携包要自带清理脚本和文档，否则用户删不干净也没处查
+$extras = @(
+    "README.md",
+    "README.zh.md",
+    "LICENSE",
+    "scripts\cleanup.ps1",
+    "scripts\cleanup.cmd"
+)
+foreach ($f in $extras) {
+    if (Test-Path $f) {
+        Copy-Item $f -Destination $outDir -Force
+        Write-Host "   + $f"
+    } else {
+        Write-Host "   ! 缺失: $f"
+    }
+}
 
 Write-Host "== 压缩 =="
 $zip = Join-Path $root "dist/StreamPack-$version-win64.zip"

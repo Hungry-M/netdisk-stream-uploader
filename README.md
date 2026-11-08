@@ -297,6 +297,16 @@ This is a portable folder with no installer, so there is no uninstaller. It only
 1. Delete the extracted `StreamPack` folder
 2. Delete `%USERPROFILE%\.netdisk_uploader\` — credentials, token, task database and config all live there
 
+The folder ships with `cleanup.cmd`: double-clicking it only **previews** what would be removed; pass a flag to act:
+
+```cmd
+cleanup.cmd -Yes
+```
+
+It only deletes files it can prove are ours (by checking for `credentials.json` / `token.json` / `tasks.db` / `config.json`), never scans by folder name, never kills processes, and never touches certificates — those need `trust-sign.ps1 -RemoveCert`.
+
+Doing it by hand is just as fine:
+
 ```powershell
 Remove-Item "$env:USERPROFILE\.netdisk_uploader" -Recurse -Force
 ```
