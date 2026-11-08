@@ -613,3 +613,23 @@ msgstr "Config file: {0}"
 msgid "默认网盘目录"
 msgstr "Default remote folder"
 
+#: src\gui\new_task_dialog.py:139
+msgid "如 .zip / .zi123p；这只是后缀，内容仍是 ZIP"
+msgstr "e.g. .zip / .zi123p; this only changes the suffix, the content is still a ZIP"
+
+#: src\gui\new_task_dialog.py:119
+msgid "必须是 /apps/<你的应用名> 下的目录——百度只允许写自己应用的空间"
+msgstr "Must be under /apps/<your app name> — Baidu only allows writing to your own app space"
+
+#: src\gui\new_task_dialog.py:166
+msgid "扩展名"
+msgstr "Extension"
+
+#: src\gui\qt_app.py:98
+msgid "新建任务"
+msgstr "New task"
+
+#: src\gui\new_task_dialog.py:103
+msgid "添加内容"
+msgstr "Add content"
+

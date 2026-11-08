@@ -10,7 +10,8 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
-    QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QSpinBox, QWidget,
+    QHBoxLayout, QLabel, QLineEdit, QMenu, QMessageBox, QPushButton, QSpinBox,
+    QToolButton, QVBoxLayout, QWidget,
 )
 
 from src.config.user_config import build_settings
@@ -53,6 +54,7 @@ def build_upload_args(
     volume_size: Optional[int] = None,
     provider: Optional[str] = None,
     resume: bool = False,
+    ext: Optional[str] = None,
 ) -> List[str]:
     """拼 `upload` 子命令的参数。密码不在这里，走环境变量，避免出现在命令行里。"""
     args = ["upload", "--source", str(source), "--files", ",".join(files), "--name", name]
@@ -60,6 +62,8 @@ def build_upload_args(
         args += ["--remote", remote]
     if volume_size:
         args += ["--volume-size", str(int(volume_size))]
+    if ext and ext != ".zip":
+        args += ["--ext", ext]
     if provider:
         args += ["--provider", provider]
     if resume:
@@ -93,25 +97,54 @@ class NewTaskDialog(QDialog):
         self.source_label = QLabel(_("还没有选择文件"))
         self.source_label.setWordWrap(True)
 
-        btn_dir = QPushButton(_("选择文件夹…"))
-        btn_files = QPushButton(_("选择文件…"))
-        btn_dir.clicked.connect(self._pick_dir)
-        btn_files.clicked.connect(self._pick_files)
+        # 系统自带的文件选择器不能同时选文件夹和文件，所以这里收成一个按钮、
+        # 两个菜单项；拖放不受这个限制，可以混着拖。
+        self.add_button = QToolButton()
+        self.add_button.setText(_("添加内容"))
+        self.add_button.setPopupMode(QToolButton.InstantPopup)
+        add_menu = QMenu(self.add_button)
+        add_menu.addAction(_("选择文件夹…"), self._pick_dir)
+        add_menu.addAction(_("选择文件…"), self._pick_files)
+        self.add_button.setMenu(add_menu)
 
         pick_row = QHBoxLayout()
         pick_row.addWidget(self.source_label, 1)
-        pick_row.addWidget(btn_dir)
-        pick_row.addWidget(btn_files)
+        pick_row.addWidget(self.add_button)
 
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText(_("压缩包名称（不含扩展名）"))
 
         self.remote_edit = QLineEdit(settings.remote_root or "/apps/StreamPack")
+        self.remote_hint = QLabel(
+            _("必须是 /apps/<你的应用名> 下的目录——百度只允许写自己应用的空间")
+        )
+        self.remote_hint.setWordWrap(True)
+        self.remote_hint.setEnabled(False)          # 视觉上作为说明文字
+
+        remote_box = QVBoxLayout()
+        remote_box.setContentsMargins(0, 0, 0, 0)
+        remote_box.setSpacing(2)
+        remote_box.addWidget(self.remote_edit)
+        remote_box.addWidget(self.remote_hint)
+        remote_widget = QWidget()
+        remote_widget.setLayout(remote_box)
 
         self.volume_spin = QSpinBox()
         self.volume_spin.setRange(1, 1024 * 200)             # 单位 MB
         self.volume_spin.setValue(DEFAULT_VOLUME_SIZE // (1024 * 1024))
         self.volume_spin.setSuffix(" MB")
+
+        self.ext_edit = QLineEdit(".zip")
+        self.ext_edit.setMaximumWidth(120)
+        self.ext_hint = QLabel(_("如 .zip / .zi123p；这只是后缀，内容仍是 ZIP"))
+        self.ext_hint.setEnabled(False)
+
+        ext_box = QHBoxLayout()
+        ext_box.setContentsMargins(0, 0, 0, 0)
+        ext_box.addWidget(self.ext_edit)
+        ext_box.addWidget(self.ext_hint, 1)
+        ext_widget = QWidget()
+        ext_widget.setLayout(ext_box)
 
         self.password_edit = QLineEdit()
         self.password_edit.setEchoMode(QLineEdit.Password)
@@ -128,8 +161,9 @@ class NewTaskDialog(QDialog):
         form = QFormLayout()
         form.addRow(_("内容"), pick_row)
         form.addRow(_("名称"), self.name_edit)
-        form.addRow(_("网盘目录"), self.remote_edit)
+        form.addRow(_("网盘目录"), remote_widget)
         form.addRow(_("分卷大小"), self.volume_spin)
+        form.addRow(_("扩展名"), ext_widget)
         form.addRow(_("加密口令"), self.password_edit)
         form.addRow(_("存储后端"), self.provider_combo)
         form.addRow("", self.resume_check)
@@ -138,8 +172,6 @@ class NewTaskDialog(QDialog):
         buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
         self._buttons = buttons
-
-        from PySide6.QtWidgets import QVBoxLayout
 
         layout = QVBoxLayout(self)
         layout.addLayout(form)
@@ -196,6 +228,7 @@ class NewTaskDialog(QDialog):
             "name": self.name_edit.text().strip(),
             "remote": self.remote_edit.text().strip() or None,
             "volume_size": self.volume_spin.value() * 1024 * 1024,
+            "ext": self.ext_edit.text().strip() or ".zip",
             "provider": self.provider_combo.currentText(),
             "resume": self.resume_check.isChecked(),
             "password": self.password_edit.text(),
@@ -206,5 +239,5 @@ class NewTaskDialog(QDialog):
         return build_upload_args(
             v["source"], v["files"], v["name"],
             remote=v["remote"], volume_size=v["volume_size"],
-            provider=v["provider"], resume=v["resume"],
+            provider=v["provider"], resume=v["resume"], ext=v["ext"],
         )

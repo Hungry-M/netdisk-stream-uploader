@@ -95,12 +95,14 @@ class MainWindow(QMainWindow):
 
         buttons = QHBoxLayout()
         buttons.setSpacing(8)
+        self.btn_new = QPushButton(_("新建任务"))
         self.btn_refresh = QPushButton(_("刷新"))
         self.btn_resume = QPushButton(_("续传"))
         self.btn_volumes = QPushButton(_("查看分卷"))
         self.btn_delete = QPushButton(_("删除记录"))
 
         for btn, pixmap in (
+            (self.btn_new, QStyle.StandardPixmap.SP_FileDialogNewFolder),
             (self.btn_refresh, QStyle.StandardPixmap.SP_BrowserReload),
             (self.btn_resume, QStyle.StandardPixmap.SP_MediaPlay),
             (self.btn_volumes, QStyle.StandardPixmap.SP_FileDialogDetailedView),
@@ -108,6 +110,7 @@ class MainWindow(QMainWindow):
         ):
             btn.setIcon(self.style().standardIcon(pixmap))
             buttons.addWidget(btn)
+        self.btn_new.clicked.connect(lambda: self.new_task())
         buttons.addStretch(1)
         layout.addLayout(buttons)
 

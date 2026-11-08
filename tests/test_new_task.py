@@ -110,3 +110,30 @@ def test_dialog_ok_disabled_without_files(qapp):
         assert ok.isEnabled() is False
     finally:
         dismiss(dialog, qapp)
+
+def test_build_upload_args_with_custom_ext(tmp_path):
+    args = build_upload_args(tmp_path, ["a.txt"], "backup", ext=".zi123p")
+    assert "--ext" in args
+    assert args[args.index("--ext") + 1] == ".zi123p"
+
+
+def test_build_upload_args_skips_default_ext(tmp_path):
+    args = build_upload_args(tmp_path, ["a.txt"], "backup", ext=".zip")
+    assert "--ext" not in args
+
+
+def test_dialog_exposes_ext_and_extended_options(qapp, tmp_path):
+    from src.gui.new_task_dialog import NewTaskDialog
+
+    folder = tmp_path / "data"
+    folder.mkdir()
+    (folder / "x.bin").write_bytes(b"x")
+
+    dialog = NewTaskDialog(preset_paths=[folder])
+    try:
+        assert dialog.ext_edit.text() == ".zip"
+        dialog.ext_edit.setText(".zi123p")
+        args = dialog.to_args()
+        assert args[args.index("--ext") + 1] == ".zi123p"
+    finally:
+        dismiss(dialog, qapp)

@@ -223,3 +223,8 @@ def test_cli_invocation_uses_python_from_source(tmp_path):
         assert prefix == ["main.py"]
     finally:
         win.close()
+
+def test_toolbar_has_new_task_button(window):
+    """新建任务要和刷新、续传放在同一排，而不是只藏在菜单里"""
+    assert window.btn_new.text() == "新建任务"
+    assert window.btn_new.isEnabled()
