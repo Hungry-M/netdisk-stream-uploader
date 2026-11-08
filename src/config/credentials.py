@@ -75,7 +75,36 @@ def load_credentials(prompt_if_missing: bool = True) -> Credentials:
 
     save_credentials(client_id, client_secret)
     print(f"✅ 凭证已保存到 ~/.netdisk_uploader/credentials.json\n")
+
+    _ask_app_name()
     return Credentials(client_id, client_secret)
+
+
+def _ask_app_name() -> None:
+    """
+    顺便问一次应用名，而不是以后让用户去填整条网盘路径。
+
+    百度只允许写 /apps/<应用名>，所以应用名是路径的唯一来源；
+    在 OAuth 这一步顺便声明，比事后改配置合理。
+    """
+    import click
+
+    try:
+        from src.config.user_config import build_settings, set_value
+        current = build_settings().app_name or "StreamPack"
+    except Exception:
+        return
+
+    print("你的应用名决定网盘可写目录：/apps/<应用名>")
+    app_name = click.prompt("应用名", default=current).strip()
+    if not app_name or app_name == current:
+        return
+
+    try:
+        set_value("app_name", app_name)
+        print(f"✅ 应用名已保存，上传目录为 /apps/{app_name}\n")
+    except ValueError as e:
+        print(f"⚠️ 应用名无效，沿用 {current}：{e}\n")
 
 
 def save_credentials(client_id: str, client_secret: str) -> Path:

@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QSpinBox, QVBoxLayout, QWidget,
 )
 
-from src.config.settings import ResourceSettings
+from src.config.settings import ResourceSettings, build_remote_root
 from src.config.user_config import (
     build_settings, config_path, effective_values, set_value, sources, unset_value,
 )
@@ -44,7 +44,26 @@ class SettingsDialog(QDialog):
         self.theme_combo.addItems(THEMES)
         self._select(self.theme_combo, str(self._effective.get("theme", "auto")))
 
-        self.remote_edit = QLineEdit(str(self._effective.get("remote_root", "")))
+        self.app_name_edit = QLineEdit(str(self._effective.get("app_name", "StreamPack")))
+        self.subdir_edit = QLineEdit(str(self._effective.get("remote_subdir", "")))
+        self.subdir_edit.setPlaceholderText(_("可留空"))
+        self.remote_preview = QLabel()
+        self.remote_preview.setEnabled(False)
+        self.app_name_edit.textChanged.connect(self._update_preview)
+        self.subdir_edit.textChanged.connect(self._update_preview)
+        self._update_preview()
+
+        remote_row = QHBoxLayout()
+        remote_row.setContentsMargins(0, 0, 0, 0)
+        remote_row.addWidget(self.app_name_edit, 1)
+        remote_row.addWidget(self.subdir_edit, 1)
+        remote_box = QVBoxLayout()
+        remote_box.setContentsMargins(0, 0, 0, 0)
+        remote_box.setSpacing(2)
+        remote_box.addLayout(remote_row)
+        remote_box.addWidget(self.remote_preview)
+        remote_widget = QWidget()
+        remote_widget.setLayout(remote_box)
 
         self.retries_spin = QSpinBox()
         self.retries_spin.setRange(1, 20)
@@ -53,7 +72,7 @@ class SettingsDialog(QDialog):
         form = QFormLayout()
         form.addRow(_("界面语言"), self.lang_combo)
         form.addRow(_("界面主题"), self.theme_combo)
-        form.addRow(_("默认网盘目录"), self.remote_edit)
+        form.addRow(_("应用名 / 子目录"), remote_widget)
         form.addRow(_("单卷重试次数"), self.retries_spin)
 
         path_hint = QLabel(_f("配置文件：{0}", config_path()))
@@ -84,6 +103,10 @@ class SettingsDialog(QDialog):
         index = combo.findText(value)
         combo.setCurrentIndex(index if index >= 0 else 0)
 
+    def _update_preview(self) -> None:
+        path = build_remote_root(self.app_name_edit.text(), self.subdir_edit.text())
+        self.remote_preview.setText(_f("将上传到 {0}", path))
+
     @staticmethod
     def _open(path: Path) -> None:
         path = Path(path)
@@ -97,7 +120,8 @@ class SettingsDialog(QDialog):
         candidates = {
             "language": self.lang_combo.currentText(),
             "theme": self.theme_combo.currentText(),
-            "remote_root": self.remote_edit.text().strip(),
+            "app_name": self.app_name_edit.text().strip(),
+            "remote_subdir": self.subdir_edit.text().strip(),
             "max_upload_retries": self.retries_spin.value(),
         }
         result = {}

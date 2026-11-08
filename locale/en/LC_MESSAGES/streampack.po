@@ -633,3 +633,27 @@ msgstr "New task"
 msgid "添加内容"
 msgstr "Add content"
 
+#: src\gui\new_task_dialog.py:120
+msgid "可留空"
+msgstr "optional"
+
+#: src\gui\new_task_dialog.py:131
+msgid "子目录"
+msgstr "Subfolder"
+
+#: src\gui\new_task_dialog.py:198
+msgid "将上传到 {0}"
+msgstr "Uploads to {0}"
+
+#: src\gui\new_task_dialog.py:129
+msgid "应用名"
+msgstr "App name"
+
+#: src\gui\settings_dialog.py:75
+msgid "应用名 / 子目录"
+msgstr "App name / subfolder"
+
+#: src\cli.py:334
+msgid "网盘目标目录，默认由配置项 app_name 推导为 /apps/<应用名>"
+msgstr "Remote folder, derived from the app_name setting as /apps/<app name>"
+

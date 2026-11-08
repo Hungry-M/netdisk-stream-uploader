@@ -151,9 +151,9 @@ python main.py --gui
 
 窗口里能看任务列表与进度、查看分卷明细、续传、删除记录，底部是实时日志。
 
-**新建任务**：菜单 **设置 → 新建上传任务…**（`Ctrl+N`），或者直接把文件/文件夹**拖进窗口**。对话框里填名称、网盘目录、分卷大小、可选加密口令，选 `local` 后端就能离线预演。
+**新建任务**：菜单 **设置 → 新建上传任务…**（`Ctrl+N`），或者直接把文件/文件夹**拖进窗口**。对话框里填名称、应用名（路径由它推导）、分卷大小、可选扩展名与加密口令，选 `local` 后端就能离线预演。
 
-**设置**：菜单 **设置 → 设置…**，可以改界面语言（auto/zh/en）、主题（auto/light/dark）、默认网盘目录、单卷重试次数；还有"打开配置文件""打开数据目录"两个入口。
+**设置**：菜单 **设置 → 设置…**，可以改界面语言（auto/zh/en）、主题（auto/light/dark）、应用名与子目录、单卷重试次数；还有"打开配置文件""打开数据目录"两个入口。
 
 界面上的所有操作最终都调同一套命令行：新建任务起的是 `streampack.exe upload …`，续传起的是 `resume <id>`，所以行为和 CLI 完全一致。
 
@@ -232,7 +232,8 @@ python main.py config path                      # 显示配置文件位置
 | `retry_backoff_seconds` | 2.0 | 首次重试的等待秒数，之后按 2 的幂递增 |
 | `provider` | `baidu` | 存储后端：`baidu` 或 `local` |
 | `local_rehearsal_dir` | `./_rehearsal` | `provider=local` 时的落盘根目录 |
-| `remote_root` | `/apps/StreamPack` | 默认上传目录，**改成你自己的应用名** |
+| `app_name` | `StreamPack` | 百度应用名称，决定可写目录 `/apps/<应用名>` |
+| `remote_subdir` | 空 | 应用目录下的子目录，留空表示直接用应用根目录 |
 
 也可以临时用环境变量覆盖，不改文件：
 
@@ -364,10 +365,12 @@ Remove-Item "$env:USERPROFILE\.netdisk_uploader" -Recurse -Force
 
 目标目录不存在或没有权限。新版开放平台不再提供单独的「应用目录」字段，可写目录固定为 `/apps/{应用名称}`，且**应用名称必须是英文**——中文名会导致路径异常。
 
-如果你用的是别人开源的程序、自己注册了应用，默认的 `/apps/StreamPack` 是作者的应用名，必然对不上。改一次就可以：
+如果你用的是别人开源的程序、自己注册了应用，默认的 `StreamPack` 是作者的应用名，必然对不上。改一次就可以：
 
 ```bash
-python main.py config set remote_root /apps/你的应用名
+python main.py config set app_name 你的应用名
+# 上传到 /apps/你的应用名；要再分层就加子目录
+python main.py config set remote_subdir backups
 ```
 
 **授权码无效（`invalid_grant`）**

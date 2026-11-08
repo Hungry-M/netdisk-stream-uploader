@@ -39,7 +39,8 @@ def test_changed_values_are_written(qapp, isolated_config):
     try:
         dialog.theme_combo.setCurrentText("dark")
         dialog.retries_spin.setValue(7)
-        dialog.remote_edit.setText("/apps/Other")
+        dialog.app_name_edit.setText("Other")
+        dialog.subdir_edit.setText("daily")
         dialog._save()
     finally:
         dismiss(dialog, qapp)
@@ -47,7 +48,8 @@ def test_changed_values_are_written(qapp, isolated_config):
     saved = json.loads(isolated_config.read_text(encoding="utf-8"))
     assert saved["theme"] == "dark"
     assert saved["max_upload_retries"] == 7
-    assert saved["remote_root"] == "/apps/Other"
+    assert saved["app_name"] == "Other"
+    assert saved["remote_subdir"] == "daily"
 
 
 def test_reverting_to_default_removes_key(qapp, isolated_config):
@@ -74,17 +76,17 @@ def test_reverting_to_default_removes_key(qapp, isolated_config):
 
 def test_env_override_is_not_overwritten(qapp, isolated_config, monkeypatch):
     """环境变量优先级更高，写文件也不会生效，所以不该写"""
-    monkeypatch.setenv("STREAMPACK_REMOTE_ROOT", "/apps/FromEnv")
+    monkeypatch.setenv("STREAMPACK_APP_NAME", "FromEnv")
 
     from src.gui.settings_dialog import SettingsDialog
 
     dialog = SettingsDialog()
     try:
-        dialog.remote_edit.setText("/apps/FromDialog")
+        dialog.app_name_edit.setText("FromDialog")
         dialog._save()
     finally:
         dismiss(dialog, qapp)
 
-    assert not isolated_config.exists() or "remote_root" not in json.loads(
+    assert not isolated_config.exists() or "app_name" not in json.loads(
         isolated_config.read_text(encoding="utf-8")
     )

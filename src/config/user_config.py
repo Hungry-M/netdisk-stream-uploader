@@ -66,6 +66,16 @@ def _parse_str(raw: str) -> str:
     return str(raw)
 
 
+def _parse_app_name(raw: str) -> str:
+    """应用名：不能带斜杠，也不能为空——它会被拼进 /apps/<名字>。"""
+    value = str(raw).strip().strip("/\\").strip()
+    if not value:
+        raise ValueError("应用名不能为空")
+    if "/" in value or "\\" in value:
+        raise ValueError(f"应用名不能包含斜杠: {raw!r}")
+    return value
+
+
 def _parse_list(raw: str) -> List[str]:
     items = [x.strip() for x in str(raw).split(",") if x.strip()]
     if not items:
@@ -102,7 +112,8 @@ SPECS: Dict[str, Tuple[str, Any, str]] = {
     "retry_backoff_seconds": ("float", _parse_float, "首次重试等待秒数，之后按 2 的幂递增"),
     "provider": ("str", _parse_str, "存储后端：baidu 或 local"),
     "local_rehearsal_dir": ("str", _parse_str, "provider=local 时的落盘根目录"),
-    "remote_root": ("str", _parse_str, "默认上传目录，通常是 /apps/<你的应用名>"),
+    "remote_subdir": ("str", _parse_str, "应用目录下的子目录，留空表示直接用应用根目录"),
+    "app_name": ("str", _parse_app_name, "百度应用名称，决定可写目录 /apps/<应用名>"),
     "language": ("str", _parse_str, "界面语言：auto / zh / en"),
     "theme": ("str", _parse_str, "界面主题：auto / light / dark"),
     "temp_file_prefix": ("str", _parse_str, "临时分卷文件名前缀"),
@@ -128,10 +139,31 @@ def load_config() -> Dict[str, Any]:
         logger.warning("配置文件内容不是对象，按默认值处理")
         return {}
 
+    # 旧版本用的是自由填写的 remote_root；现在由 app_name + remote_subdir 推导，
+    # 这里把老配置迁移过来，避免升级后目标目录突然变了。
+    legacy_root = data.pop("remote_root", None)
+    if isinstance(legacy_root, str) and legacy_root.strip() and "app_name" not in data:
+        name, sub = _split_legacy_remote_root(legacy_root)
+        if name:
+            data["app_name"] = name
+            if sub and "remote_subdir" not in data:
+                data["remote_subdir"] = sub
+            logger.info(f"已把配置项 remote_root={legacy_root} 迁移为 app_name={name}")
+        else:
+            logger.warning(f"旧配置 remote_root={legacy_root} 不在 /apps/ 下，已忽略")
+
     unknown = set(data) - set(SPECS)
     if unknown:
         logger.warning(f"配置文件含未知项，已忽略: {', '.join(sorted(unknown))}")
     return {k: v for k, v in data.items() if k in SPECS}
+
+
+def _split_legacy_remote_root(value: str):
+    """/apps/Foo/bar -> ("Foo", "bar")；不在 /apps/ 下返回 ("", "")。"""
+    parts = [p for p in str(value).strip().split("/") if p]
+    if len(parts) < 2 or parts[0] != "apps":
+        return "", ""
+    return parts[1], "/".join(parts[2:])
 
 
 def save_config(data: Dict[str, Any]) -> Path:

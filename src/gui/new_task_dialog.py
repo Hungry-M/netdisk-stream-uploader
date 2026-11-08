@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QToolButton, QVBoxLayout, QWidget,
 )
 
+from src.config.settings import build_remote_root
 from src.config.user_config import build_settings
 from src.i18n import _, _f
 
@@ -114,18 +115,27 @@ class NewTaskDialog(QDialog):
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText(_("压缩包名称（不含扩展名）"))
 
-        self.remote_edit = QLineEdit(settings.remote_root or "/apps/StreamPack")
-        self.remote_hint = QLabel(
-            _("必须是 /apps/<你的应用名> 下的目录——百度只允许写自己应用的空间")
-        )
-        self.remote_hint.setWordWrap(True)
-        self.remote_hint.setEnabled(False)          # 视觉上作为说明文字
+        self.app_name_edit = QLineEdit(settings.app_name or "StreamPack")
+        self.subdir_edit = QLineEdit(settings.remote_subdir or "")
+        self.subdir_edit.setPlaceholderText(_("可留空"))
+        self.remote_preview = QLabel()
+        self.remote_preview.setEnabled(False)
+        self.app_name_edit.textChanged.connect(self._update_remote_preview)
+        self.subdir_edit.textChanged.connect(self._update_remote_preview)
+        self._update_remote_preview()
+
+        remote_row = QHBoxLayout()
+        remote_row.setContentsMargins(0, 0, 0, 0)
+        remote_row.addWidget(QLabel(_("应用名")))
+        remote_row.addWidget(self.app_name_edit, 1)
+        remote_row.addWidget(QLabel(_("子目录")))
+        remote_row.addWidget(self.subdir_edit, 1)
 
         remote_box = QVBoxLayout()
         remote_box.setContentsMargins(0, 0, 0, 0)
         remote_box.setSpacing(2)
-        remote_box.addWidget(self.remote_edit)
-        remote_box.addWidget(self.remote_hint)
+        remote_box.addLayout(remote_row)
+        remote_box.addWidget(self.remote_preview)
         remote_widget = QWidget()
         remote_widget.setLayout(remote_box)
 
@@ -183,6 +193,10 @@ class NewTaskDialog(QDialog):
 
     # ---- 选择 ----
 
+    def _update_remote_preview(self) -> None:
+        path = build_remote_root(self.app_name_edit.text(), self.subdir_edit.text())
+        self.remote_preview.setText(_f("将上传到 {0}", path))
+
     def _pick_dir(self) -> None:
         path = QFileDialog.getExistingDirectory(self, _("选择要打包的文件夹"))
         if path:
@@ -222,11 +236,15 @@ class NewTaskDialog(QDialog):
     # ---- 结果 ----
 
     def values(self) -> Dict[str, object]:
+        app_name = self.app_name_edit.text().strip() or "StreamPack"
+        subdir = self.subdir_edit.text().strip()
         return {
             "source": self._source,
             "files": list(self._files),
             "name": self.name_edit.text().strip(),
-            "remote": self.remote_edit.text().strip() or None,
+            "app_name": app_name,
+            "remote_subdir": subdir,
+            "remote": build_remote_root(app_name, subdir),
             "volume_size": self.volume_spin.value() * 1024 * 1024,
             "ext": self.ext_edit.text().strip() or ".zip",
             "provider": self.provider_combo.currentText(),

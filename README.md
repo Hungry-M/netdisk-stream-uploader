@@ -151,9 +151,9 @@ python main.py --gui
 
 The window shows the task list with progress, per-volume details, resume, delete, and a live log pane.
 
-**New task**: **Settings → New upload task…** (`Ctrl+N`), or just **drag files/folders into the window**. The dialog takes a name, remote folder, volume size and an optional encryption password; pick the `local` backend to rehearse offline.
+**New task**: **Settings → New upload task…** (`Ctrl+N`), or just **drag files/folders into the window**. The dialog takes a name, your app name (the path is derived from it), volume size, an optional extension and encryption password; pick the `local` backend to rehearse offline.
 
-**Settings**: **Settings → Settings…** changes the UI language (auto/zh/en), theme (auto/light/dark), default remote folder and per-volume retries, plus "open config file" / "open data folder".
+**Settings**: **Settings → Settings…** changes the UI language (auto/zh/en), theme (auto/light/dark), app name and subfolder, and per-volume retries, plus "open config file" / "open data folder".
 
 Everything the UI does ends up in the same CLI: a new task launches `streampack.exe upload …`, resume launches `resume <id>`, so behaviour is identical to the command line.
 
@@ -232,7 +232,8 @@ Options:
 | `retry_backoff_seconds` | 2.0 | Delay before the first retry; doubles each time |
 | `provider` | `baidu` | Storage backend: `baidu` or `local` |
 | `local_rehearsal_dir` | `./_rehearsal` | Root directory for `provider=local` |
-| `remote_root` | `/apps/StreamPack` | Default upload directory — **change it to your own app name** |
+| `app_name` | `StreamPack` | Baidu app name; determines the writable folder `/apps/<app name>` |
+| `remote_subdir` | empty | Optional subfolder under the app folder |
 
 Any option can also be overridden per-session with an environment variable:
 
@@ -370,10 +371,12 @@ Almost always a mangled SecretKey. The common cause is an invisible control char
 
 The target directory does not exist or is not writable. The current console no longer has a separate "app directory" field: writable paths are fixed to `/apps/{app name}`, and the **app name must be ASCII** — a Chinese name breaks the path.
 
-If you are using someone else's open-source tool with your own app, the default `/apps/StreamPack` is the author's app name and will not match yours. Set it once:
+If you are using someone else's open-source tool with your own app, the default `StreamPack` is the author's app name and will not match yours. Set it once:
 
 ```bash
-python main.py config set remote_root /apps/your-app-name
+python main.py config set app_name your-app-name
+# uploads to /apps/your-app-name; add a subfolder if you want another level
+python main.py config set remote_subdir backups
 ```
 
 **`invalid_grant` when exchanging the code**

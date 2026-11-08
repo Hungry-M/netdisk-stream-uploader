@@ -210,7 +210,25 @@ class MainWindow(QMainWindow):
             return
 
         values = dialog.values()
+        self._remember_remote(str(values.get("app_name") or ""),
+                              str(values.get("remote_subdir") or ""))
         self._run_cli(dialog.to_args(), env=build_env(str(values.get("password") or "")))
+
+    @staticmethod
+    def _remember_remote(app_name: str, subdir: str) -> None:
+        """用户在对话框里改过应用名/子目录就记进配置，下次不用重填。"""
+        if not app_name:
+            return
+        try:
+            from src.config.user_config import build_settings, set_value
+
+            current = build_settings()
+            if app_name != current.app_name:
+                set_value("app_name", app_name)
+            if subdir != current.remote_subdir:
+                set_value("remote_subdir", subdir)
+        except Exception:
+            pass          # 记不住不影响这次上传
 
     # ---------- 拖放 ----------
 

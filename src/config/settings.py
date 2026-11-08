@@ -3,6 +3,22 @@ import os
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+
+def build_remote_root(app_name: str = "StreamPack", subdir: str = "") -> str:
+    """
+    由应用名推导网盘目录：/apps/<应用名>[/<子目录>]。
+
+    百度只允许写自己应用的空间，所以前缀不能改；改了就是 404。
+    应用名里的斜杠会被剥掉，避免拼出 // 或跳出 /apps/。
+    """
+    name = (app_name or "").strip().strip("/\\").strip()
+    if not name:
+        name = "StreamPack"
+
+    sub = (subdir or "").strip().strip("/\\").strip()
+    root = f"/apps/{name}"
+    return f"{root}/{sub}" if sub else root
+
 @dataclass
 class ResourceSettings:
     """
@@ -65,10 +81,17 @@ class ResourceSettings:
     # provider=local 时的落盘根目录
     local_rehearsal_dir: str = "./_rehearsal"
 
-    # 默认的网盘目标目录。
-    # 注意：可写目录由「应用名称」决定，固定是 /apps/<应用名>。
-    # 用别人的程序、自己注册应用时，这里必须改成自己的应用名，否则会 404。
-    remote_root: str = "/apps/StreamPack"
+    # 百度「应用名称」：决定可写目录 /apps/<应用名>。
+    # 这是使用者在 OAuth 那一步就该声明的信息，路径由它推导，不再让用户手填整条路径。
+    app_name: str = "StreamPack"
+
+    # 应用目录下再分一层子目录；留空表示直接用 /apps/<应用名>
+    remote_subdir: str = ""
+
+    @property
+    def remote_root(self) -> str:
+        """网盘目标目录，由应用名和子目录推导，不单独配置。"""
+        return build_remote_root(self.app_name, self.remote_subdir)
 
     # ----- 界面与语言 -----
     # "auto" 按系统区域判断；也可写 "zh" / "en"
