@@ -413,6 +413,14 @@ cat arch.part*.zip > arch.zip
 
 > RAR 不在计划内：压缩算法专有，官方只开源解压、禁止用于生成，Python 侧没有可用的写入实现。
 
+## 贡献
+
+欢迎 issue 和 pull request。
+
+- 想接入**其他网盘**：看 [docs/storage-provider.md](docs/storage-provider.md)，或直接用[网盘支持模板](.github/ISSUE_TEMPLATE/provider-support.md)提 issue
+- 环境、提交约定与发布流程：看 [CONTRIBUTING.md](CONTRIBUTING.md)
+- 界面翻译：改 `locale/*/LC_MESSAGES/*.po` 后跑 `python scripts/build_mo.py`
+
 ## 许可证
 
 Apache License 2.0 — 见 [LICENSE](LICENSE)。

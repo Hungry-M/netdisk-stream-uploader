@@ -419,6 +419,14 @@ The password is stored nowhere (the database only keeps a PBKDF2 verifier for co
 
 > RAR is out of scope: the compression algorithm is proprietary, the vendor only open-sources extraction and forbids using it to create archives, and no Python writer exists.
 
+## Contributing
+
+Issues and pull requests are welcome.
+
+- Adding **another netdisk**: see [docs/storage-provider.md](docs/storage-provider.md), or open an issue with the [netdisk support template](.github/ISSUE_TEMPLATE/provider-support.md)
+- Setup, commit conventions and release flow: see [CONTRIBUTING.md](CONTRIBUTING.md)
+- Translations: edit `locale/*/LC_MESSAGES/*.po`, then run `python scripts/build_mo.py`
+
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE).
