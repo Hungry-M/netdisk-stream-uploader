@@ -63,12 +63,15 @@ def _parse_global_args(argv: List[str]):
     mode = "cli"
     log_file: Optional[str] = None
     lang: Optional[str] = None
+    show_version = False
     remaining: List[str] = []
 
     i = 0
     while i < len(argv):
         arg = argv[i]
-        if arg == "--debug":
+        if arg in ("--version", "-V"):
+            show_version = True
+        elif arg == "--debug":
             debug = True
         elif arg == "--quiet":
             quiet = True
@@ -96,7 +99,7 @@ def _parse_global_args(argv: List[str]):
 
     # --debug 优先于 --quiet
     level = "DEBUG" if debug else ("WARNING" if quiet else "INFO")
-    return mode, level, log_file, lang, remaining
+    return mode, level, log_file, lang, show_version, remaining
 
 
 def _configured_language() -> str:
@@ -115,7 +118,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     parsed = _parse_global_args(argv)
     if parsed is None:
         return 2
-    mode, level, log_file, lang, remaining = parsed
+    mode, level, log_file, lang, show_version, remaining = parsed
+
+    if show_version:
+        from src.version import __version__
+        print(f"StreamPack {__version__}")
+        return 0
 
     from src.i18n import set_language
     set_language(lang or _configured_language())

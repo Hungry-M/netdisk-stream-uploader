@@ -1,4 +1,4 @@
-﻿# scripts/build_release.ps1
+# scripts/build_release.ps1
 #
 # 打包成可分发的目录并压缩：
 #     dist/StreamPack/                <- 直接可运行
@@ -15,8 +15,18 @@ $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
 Write-Host "== 版本 =="
-$version = (git describe --tags --always --dirty) 2>$null
-if (-not $version) { $version = "dev" }
+$codeVersion = (python -c "from src.version import __version__; print(__version__)").Trim()
+$exactTag = (git describe --tags --exact-match 2>$null)
+if ($exactTag) {
+    if ($exactTag.TrimStart('v') -ne $codeVersion) {
+        throw "版本不一致：tag=$exactTag，src/version.py=$codeVersion"
+    }
+    $version = $exactTag
+} else {
+    $short = (git rev-parse --short HEAD).Trim()
+    $version = "$codeVersion+$short"
+    Write-Host "   不在 tag 上，产物标记为 $version"
+}
 Write-Host "   $version"
 
 Write-Host "== 清理旧产物 =="

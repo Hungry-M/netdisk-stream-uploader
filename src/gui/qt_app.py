@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from src.i18n import _
 from src.gui.theme import apply_theme, apply_window_effects
 from src.gui.viewmodel import TaskListViewModel
+from src.version import __version__
 
 COLUMNS = [_("任务 ID"), _("名称"), _("状态"), _("进度"), _("目标")]
 
@@ -52,7 +53,7 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         self._dark = apply_theme(app) if app else False
 
-        self.setWindowTitle("StreamPack — " + _("分卷流式网盘上传"))
+        self.setWindowTitle(f"StreamPack {__version__} — " + _("分卷流式网盘上传"))
         self.resize(920, 560)
 
         central = QWidget()

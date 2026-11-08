@@ -167,7 +167,9 @@ These apply to every subcommand and go before it:
 python main.py --debug list              # DEBUG-level logging
 python main.py --quiet list              # WARNING and above only
 python main.py --log-file run.log list   # also write to a log file
-python main.py --gui                     # graphical interface (not implemented)
+python main.py --lang en list            # switch language (zh / en / auto)
+python main.py --version                 # print the version
+python main.py --gui                     # graphical interface
 ```
 
 `--debug` takes precedence over `--quiet`.

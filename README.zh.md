@@ -167,7 +167,9 @@ python main.py delete <task_id> --yes
 python main.py --debug list              # 输出 DEBUG 级日志
 python main.py --quiet list              # 只输出 WARNING 及以上
 python main.py --log-file run.log list   # 同时写入日志文件
-python main.py --gui                     # 图形界面（尚未实现）
+python main.py --lang en list            # 切英文（zh / en / auto）
+python main.py --version                 # 打印版本号
+python main.py --gui                     # 图形界面
 ```
 
 `--debug` 优先于 `--quiet`。

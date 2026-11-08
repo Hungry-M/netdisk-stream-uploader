@@ -28,6 +28,20 @@ jobs:
           pip install -r requirements-gui.txt
           pip install pyinstaller
 
+      - name: Version check
+        shell: pwsh
+        run: |
+          $code = (python -c "from src.version import __version__; print(__version__)").Trim()
+          $tag = git describe --tags --exact-match 2>$null
+          if (-not $tag) {
+            Write-Host "不在 tag 上（workflow_dispatch），跳过一致性检查；代码版本 $code"
+            exit 0
+          }
+          if ($tag.TrimStart('v') -ne $code) {
+            throw "tag $tag 与 src/version.py $code 不一致"
+          }
+          Write-Host "版本一致：$tag"
+
       - name: Run tests
         shell: pwsh
         run: |
