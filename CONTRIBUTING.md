@@ -79,19 +79,45 @@ python scripts/make_icon.py    # 需要 Pillow；生成 assets/streampack.ico（
 - 涉及界面的改动，附一张 offscreen 渲染的截图（`QT_QPA_PLATFORM=offscreen`，不会弹窗）
 - 不加新依赖，除非在 PR 里说明理由
 
-## 发布（维护者）
+## 版本与发布（维护者）
+
+### 教训
+
+0.6.x–0.12.0 期间一晚发了 10 个版本，其中 v0.7.0 / v0.8.0 / v0.9.0 的 GUI 一启动就崩；
+v0.9.1 只是修 v0.9.0 的崩溃。**坏版本占了一个号，再用 "+1 patch" 掩盖，是最糟的做法**——
+用户不知道该下哪个，历史里还留下一堆装不上的包。
+
+### 规则
+
+1. **不为每次提交发版。** 改动先累积在 `main`，等到一个可用的里程碑再打 tag。
+2. **打 tag 前必须三件事都过**：
+   - `python -m pytest -q` 全绿
+   - 本地 `dist\StreamPack\streampack-gui.exe` 能双击起来
+   - CI 绿（tag 推送后确认，红就删掉重来）
+3. **坏版本不发新号。** 删掉那个 Release 和 tag，修好后再打**同一个号**。
+4. 版本号语义（1.0 之前）：
+   - `0.x.Y` patch：只修缺陷，不改行为
+   - `0.X.0` minor：新的用户可见能力，或配置/数据格式变化（可能不兼容）
+   - `major`：1.0.0 之后才用，表示不兼容变化
+5. **1.0.0 的门槛**：安装器、自签名、GUI 全流程可用，且至少接上第二个真实网盘后端。
+
+### 操作
 
 ```powershell
-# 1. 改 src/version.py 并提交
-# 2. 打 tag 并推送
-git tag -a v0.9.0 -m "v0.9.0: ..."
-git push origin v0.9.0
+# 1. 改 src/version.py 并提交（tag 与代码版本不一致时，构建脚本会直接失败）
+# 2. 本地构建 + 双击验证 GUI
+powershell -ExecutionPolicy Bypass -File scripts/build_release.ps1
+
+# 3. 打 tag 并推送
+git tag -a v0.13.0 -m "v0.13.0: ..."
+git push origin v0.13.0
 ```
 
 推 tag 会触发 GitHub Actions：跑测试 → 校验版本与 BOM → 构建便携包与安装器 → 生成 `SHA256SUMS.txt` → 建 Release。
 
-本地等效构建：
+**CI 红了就删掉重来**，不要为了变绿而再发一个版本：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/build_release.ps1
+git push --delete origin v0.13.0     # 删远端 tag
+git tag -d v0.13.0                   # 删本地 tag
 ```
