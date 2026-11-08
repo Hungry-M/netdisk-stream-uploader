@@ -56,6 +56,14 @@ python main.py --gui
 5. **不要把凭据写进仓库**。`~/.netdisk_uploader/` 已被 `.gitignore` 排除，测试里也不要用真实 token。
 6. **提交前跑一遍测试**，并在 PR 里贴 `python -m pytest -q` 的输出。
 
+图标改了之后重新生成：
+
+```bash
+python scripts/make_icon.py    # 需要 Pillow；生成 assets/streampack.ico（7 种尺寸）
+```
+
+`tests/test_packaging.py` 会检查图标存在、规格文件引用它、以及 `.ps1` 的 BOM。
+
 ## 提 issue
 
 - **缺陷**：复现步骤、`--debug` 日志片段、`python main.py --version` 的输出、Windows 版本

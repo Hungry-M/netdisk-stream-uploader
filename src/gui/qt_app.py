@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from PySide6.QtCore import QProcess, QTimer
-from PySide6.QtGui import QStandardItem, QStandardItemModel
+from PySide6.QtGui import QIcon, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
     QAbstractItemView, QApplication, QHBoxLayout, QLabel, QMainWindow,
     QMessageBox, QPlainTextEdit, QPushButton, QStyle, QTableView, QVBoxLayout,
@@ -26,6 +26,13 @@ from src.gui.viewmodel import TaskListViewModel
 from src.version import __version__
 
 COLUMNS = [_("任务 ID"), _("名称"), _("状态"), _("进度"), _("目标")]
+
+
+def _app_icon() -> Optional[QIcon]:
+    """窗口图标。打包后在 _MEIPASS/assets，源码运行在仓库根 assets/。"""
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent.parent))
+    icon_path = base / "assets" / "streampack.ico"
+    return QIcon(str(icon_path)) if icon_path.is_file() else None
 
 
 class TaskTableModel(QStandardItemModel):
@@ -56,6 +63,9 @@ class MainWindow(QMainWindow):
         self._dark = apply_theme(app) if app else False
 
         self.setWindowTitle(f"StreamPack {__version__} — " + _("分卷流式网盘上传"))
+        icon = _app_icon()
+        if icon is not None:
+            self.setWindowIcon(icon)
         self.resize(920, 560)
 
         central = QWidget()

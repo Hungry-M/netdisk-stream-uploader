@@ -17,14 +17,24 @@ from pathlib import Path
 
 ROOT = Path(SPECPATH).resolve().parent   # SPECPATH 是 packaging/ 本身
 
-# 界面翻译必须在包里，否则打包后只剩中文
-DATAS = [(str(ROOT / "locale"), "locale")] if (ROOT / "locale").is_dir() else []
+# 界面翻译必须在包里，否则打包后只剩中文；图标给窗口用
+DATAS = []
+if (ROOT / "locale").is_dir():
+    DATAS.append((str(ROOT / "locale"), "locale"))
+if (ROOT / "assets").is_dir():
+    DATAS.append((str(ROOT / "assets"), "assets"))
+
+ICON = str(ROOT / "assets" / "streampack.ico")
+if not Path(ICON).is_file():
+    ICON = None
 
 COMMON = dict(
     pathex=[str(ROOT)],
     binaries=[],
     datas=DATAS,
-    hiddenimports=[],
+    # shiboken6 在运行时才 import __future__，PyInstaller 静态分析抓不到，
+    # 不显式声明会导致 GUI 启动即崩（ModuleNotFoundError: __future__）
+    hiddenimports=["__future__"],
     hookspath=[],
     runtime_hooks=[],
     excludes=["tkinter", "pytest", "PySide6.QtWebEngineCore"],
@@ -43,6 +53,7 @@ cli_exe = EXE(
     exclude_binaries=True,
     name="streampack",
     console=True,          # 命令行版必须留控制台
+    icon=ICON,
     upx=False,
     strip=False,
 )
@@ -54,6 +65,7 @@ gui_exe = EXE(
     exclude_binaries=True,
     name="streampack-gui",
     console=False,         # 图形版不要黑框
+    icon=ICON,
     upx=False,
     strip=False,
 )

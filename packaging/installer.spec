@@ -17,6 +17,7 @@ if not PAYLOAD.is_dir():
     raise SystemExit(f"找不到便携包目录，先构建 portable: {PAYLOAD}")
 
 version = os.environ.get("STREAMPACK_VERSION", "dev")
+ICON = PROJECT / "assets" / "streampack.ico"
 
 a = Analysis(
     [str(PKG / "installer.py")],
@@ -39,6 +40,7 @@ exe = EXE(
     [],
     name=f"StreamPack-Setup-{version}",
     console=False,          # 安装器不要黑框，反馈走 MessageBox
+    icon=str(ICON) if ICON.is_file() else None,
     upx=False,
     strip=False,
 )
