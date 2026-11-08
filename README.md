@@ -290,12 +290,30 @@ Options: `--dir <path>` to change the location, `--no-shortcut` to skip the shor
 
 **About "Unknown publisher"**: the build is not code-signed, so SmartScreen warns once — click "More info → Run anyway".
 
-A self-signed certificate **only helps on your own machine**: sign with it, import the certificate into "Trusted Root Certification Authorities", and the warning disappears and your publisher name shows. It does not survive distribution — other machines do not trust your certificate, so they still warn, and usually report an invalid certificate, which is worse than not signing. For public distribution you either buy an OV/EV code-signing certificate or accept the prompt and let people verify the download:
+#### Local self-signing (optional)
+
+If you only use it on your own machine, signing once makes the warning go away. After installing, open **Tools → Trust and sign locally (this machine only)…**. The confirmation lists exactly what will happen:
+
+- create or reuse a local root `CN=Hungry-M` for the current Windows user
+- issue a project child certificate `CN=StreamPack`
+- add the root to "Trusted Root Certification Authorities" and the child to "Trusted Publishers"
+- sign the program, then reopen it
+
+A running exe cannot sign itself (the file is locked), so the app hands its PID and path to `trust-sign.ps1` and exits; the helper waits for the file to unlock, signs, and relaunches.
+
+**This is local-only**: distributing the signed build does not help anyone else — their machines do not trust your certificate and will report an invalid one. To verify a download instead, compare with `SHA256SUMS.txt` in the release:
 
 ```powershell
-Get-FileHash .\StreamPack-v0.6.3-win64.zip -Algorithm SHA256
-# compare with SHA256SUMS.txt in the release
+Get-FileHash .\StreamPack-v0.9.0-win64.zip -Algorithm SHA256
 ```
+
+To remove the trust again:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File trust-sign.ps1 -RemoveCert
+```
+
+It removes the child first and only deletes the root when no other project's child certificate is left.
 
 If you would rather not run an exe at all, the source works the same way:
 

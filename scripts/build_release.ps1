@@ -59,7 +59,9 @@ $extras = @(
     "scripts\cleanup.ps1",
     "scripts\cleanup.cmd",
     "scripts\uninstall.ps1",
-    "scripts\uninstall.cmd"
+    "scripts\uninstall.cmd",
+    "scripts\trust-sign.ps1",
+    "scripts\trust-sign.cmd"
 )
 foreach ($f in $extras) {
     if (Test-Path $f) {

@@ -84,6 +84,7 @@ jobs:
           Copy-Item README.md, README.zh.md, LICENSE -Destination $dst -Force
           Copy-Item scripts/cleanup.ps1, scripts/cleanup.cmd -Destination $dst -Force
           Copy-Item scripts/uninstall.ps1, scripts/uninstall.cmd -Destination $dst -Force
+          Copy-Item scripts/trust-sign.ps1, scripts/trust-sign.cmd -Destination $dst -Force
           Get-ChildItem $dst -File | Select-Object Name, Length
 
       - name: Build installer

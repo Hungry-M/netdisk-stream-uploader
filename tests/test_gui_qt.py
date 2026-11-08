@@ -104,3 +104,81 @@ def test_is_dark_returns_bool(qapp):
     from src.gui.theme import is_dark
 
     assert isinstance(is_dark(qapp), bool)
+
+
+# ---------- 自签名菜单 ----------
+
+def test_trust_menu_hidden_when_running_from_source(qapp, tmp_path):
+    """源码运行时签名对象是 python.exe，没有意义，菜单应隐藏"""
+    import sys
+
+    from src.gui.qt_app import MainWindow
+    from src.gui.viewmodel import TaskListViewModel
+    from src.database.task_db import TaskDB
+
+    monkeypatch_target = getattr(sys, "frozen", False)
+    try:
+        if hasattr(sys, "frozen"):
+            del sys.frozen
+        win = MainWindow(viewmodel=TaskListViewModel(db=TaskDB(db_path=str(tmp_path / "g.db"))),
+                         refresh_ms=600000)
+        try:
+            assert win.action_trust is None
+        finally:
+            win.close()
+    finally:
+        if monkeypatch_target:
+            sys.frozen = True
+
+
+def test_trust_menu_visible_when_frozen(qapp, tmp_path, monkeypatch):
+    """打包/安装后才出现菜单，文案要写明「仅本机」"""
+    import sys
+
+    from src.database.task_db import TaskDB
+    from src.gui.qt_app import MainWindow
+    from src.gui.viewmodel import TaskListViewModel
+
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    win = MainWindow(viewmodel=TaskListViewModel(db=TaskDB(db_path=str(tmp_path / "g2.db"))),
+                     refresh_ms=600000)
+    try:
+        assert win.action_trust is not None
+        text = win.action_trust.text()
+        assert "信任" in text and "本机" in text
+    finally:
+        win.close()
+
+
+def test_trust_and_sign_warns_when_helper_missing(qapp, tmp_path, monkeypatch):
+    """找不到 trust-sign.ps1 时只提示，不能静默失败"""
+    import sys
+
+    from src.database.task_db import TaskDB
+    from src.gui.qt_app import MainWindow
+    from src.gui.viewmodel import TaskListViewModel
+
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "streampack-gui.exe"))
+
+    captured = {}
+
+    class FakeBox:
+        @staticmethod
+        def warning(parent, title, text):
+            captured["text"] = text
+
+        @staticmethod
+        def question(parent, title, text):
+            captured["question"] = True
+            return 0
+
+    monkeypatch.setattr("src.gui.qt_app.QMessageBox", FakeBox)
+
+    win = MainWindow(viewmodel=TaskListViewModel(db=TaskDB(db_path=str(tmp_path / "g3.db"))),
+                     refresh_ms=600000)
+    try:
+        win.trust_and_sign()
+        assert "trust-sign.ps1" in captured["text"]
+    finally:
+        win.close()

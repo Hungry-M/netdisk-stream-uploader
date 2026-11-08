@@ -7,7 +7,9 @@ PySide6 视图层。
 **上传动作通过子进程调用 CLI 完成**（`python main.py resume <id>`），而不是在
 GUI 里再实现一遍：这样压缩/校验/重试只有一份实现，界面卡死的风险也没有。
 """
+import os
 import sys
+from pathlib import Path
 from typing import List, Optional
 
 from PySide6.QtCore import QProcess, QTimer
@@ -111,11 +113,71 @@ class MainWindow(QMainWindow):
         self.btn_volumes.clicked.connect(self.show_volumes)
         self.btn_delete.clicked.connect(self.delete_selected)
 
+        self._build_tools_menu()
+
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.refresh)
         self.timer.start(refresh_ms)
 
         self.refresh()
+
+    # ---------- 工具菜单 ----------
+
+    def _build_tools_menu(self) -> None:
+        """
+        「本地信任并签名」只在打包/安装后的界面里出现。
+
+        源码运行时签名对象是 python.exe，没有意义，所以隐藏。
+        """
+        self.action_trust = None
+        if not getattr(sys, "frozen", False):
+            return
+
+        tools = self.menuBar().addMenu(_("工具"))
+        self.action_trust = tools.addAction(_("本地信任并签名（仅本机）…"))
+        self.action_trust.triggered.connect(self.trust_and_sign)
+
+    def trust_and_sign(self) -> None:
+        """
+        启动 helper 给自己签名。
+
+        自己不能改自己：把 PID 和路径交给 helper，本进程先退出，
+        helper 等文件解锁后签名，再重新拉起程序。
+        """
+        helper = Path(sys.executable).parent / "trust-sign.ps1"
+        if not helper.is_file():
+            QMessageBox.warning(
+                self, _("本地信任并签名"),
+                _("找不到 trust-sign.ps1，无法签名。\n预计位置：{0}").format(helper),
+            )
+            return
+
+        text = _(
+            "将在当前 Windows 用户下执行：\n\n"
+            "· 创建或复用一个本地根证书 CN=Hungry-M\n"
+            "· 签发项目子证书 CN=StreamPack\n"
+            "· 把根加入「受信任的根证书颁发机构」、子证书加入「受信任的发布者」\n"
+            "· 给本程序签名，然后重新打开\n\n"
+            "仅对本机当前用户有效，其他电脑不信任；\n"
+            "这不是公共 CA 签名，不改变 SmartScreen 信誉。\n\n"
+            "签名期间程序会关闭，完成后自动重新打开。"
+        )
+        if QMessageBox.question(self, _("本地信任并签名"), text) != QMessageBox.Yes:
+            return
+
+        args = [
+            "-NoProfile", "-ExecutionPolicy", "Bypass",
+            "-File", str(helper),
+            "-AppPath", sys.executable,
+            "-WaitPid", str(os.getpid()),
+            "-Relaunch",
+        ]
+        if not QProcess.startDetached("powershell", args):
+            QMessageBox.warning(self, _("本地信任并签名"), _("无法启动签名 helper。"))
+            return
+
+        # 必须退出：helper 要等这个进程释放 exe 文件锁
+        self.close()
 
     # ---------- 数据 ----------
 
