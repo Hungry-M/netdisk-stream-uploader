@@ -249,6 +249,7 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
             db.upsert_volume(
                 task_id, info.part_number, remote_path, info.temp_path,
                 md5=info.md5, size_bytes=info.size, start_offset=info.start_offset,
+                files=list(info.files) if info.files else None,
             )
         except Exception as e:      # 记录失败不该中断上传
             logger.warning(f"记录分卷元数据失败（卷 {info.part_number}）: {e}")
@@ -492,6 +493,27 @@ def upload(source, files, remote, name, volume_size, resume, ext, backpressure,
     _run_upload(task_id, task, db, backpressure=bp_limit,
                 verify=verify, password=password, provider_name=provider,
                 layout=layout, pack_by=pack_by)
+
+
+@cli.command(name='find')
+@click.argument('keyword')
+@click.option('--task', 'task_id', default=None, help=_('只在指定任务里找'))
+def find_command(keyword, task_id):
+    """查找某个文件在哪个分卷里（查本地记录，不联网）。"""
+    db = TaskDB()
+    hits = db.find_files(keyword, task_id)
+
+    if not hits:
+        click.echo(_f("没有找到包含「{0}」的文件", keyword))
+        click.echo(_("只有 --layout self-contained 的任务会记录分卷与文件的对应关系"))
+        return
+
+    click.echo(_f("找到 {0} 处：", len(hits)))
+    for hit in hits:
+        click.echo(f"  {hit['arcname']}")
+        click.echo(_f("    任务 {0}（{1}） 第 {2} 卷", hit['task_id'],
+                      hit['base_name'], hit['part_number']))
+        click.echo(f"    {hit['remote_path']}")
 
 
 @cli.command()

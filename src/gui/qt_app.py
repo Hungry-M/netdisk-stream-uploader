@@ -15,9 +15,9 @@ from typing import List, Optional, Tuple
 from PySide6.QtCore import QProcess, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QIcon, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
-    QAbstractItemView, QApplication, QHBoxLayout, QLabel, QMainWindow,
-    QMessageBox, QPlainTextEdit, QPushButton, QStyle, QTableView, QVBoxLayout,
-    QWidget,
+    QAbstractItemView, QApplication, QHBoxLayout, QInputDialog, QLabel,
+    QMainWindow, QMessageBox, QPlainTextEdit, QPushButton, QStyle, QTableView,
+    QVBoxLayout, QWidget,
 )
 
 from src.i18n import _
@@ -165,6 +165,10 @@ class MainWindow(QMainWindow):
             lambda: self._open_path(Path.home() / ".netdisk_uploader")
         )
 
+        self.action_find = menu.addAction(_("查找文件…"))
+        self.action_find.setShortcut("Ctrl+F")
+        self.action_find.triggered.connect(self.find_file)
+
         self.action_trust = None
         if getattr(sys, "frozen", False):
             menu.addSeparator()
@@ -196,6 +200,34 @@ class MainWindow(QMainWindow):
                 self, _("设置"),
                 _("已保存。语言和主题的改动在下次启动时生效。"),
             )
+
+    def find_file(self) -> None:
+        """在本地分卷记录里找文件（self-contained 任务才有映射）"""
+        keyword, ok = QInputDialog.getText(self, _("查找文件"), _("文件名包含："))
+        if not ok or not keyword.strip():
+            return
+
+        from src.database.task_db import TaskDB
+
+        hits = TaskDB().find_files(keyword.strip())
+        if not hits:
+            QMessageBox.information(
+                self, _("查找文件"),
+                _f("没有找到包含「{0}」的文件。\n"
+                   "只有自包含布局的任务会记录分卷与文件的对应关系。", keyword),
+            )
+            return
+
+        lines = [
+            f"{hit['arcname']}\n    {_f('第 {0} 卷', hit['part_number'])}  "
+            f"{hit['remote_path']}"
+            for hit in hits[:30]
+        ]
+        if len(hits) > 30:
+            lines.append(_f("… 另有 {0} 处", len(hits) - 30))
+        QMessageBox.information(
+            self, _f("找到 {0} 处", len(hits)), "\n\n".join(lines)
+        )
 
     # ---------- 新建任务 ----------
 

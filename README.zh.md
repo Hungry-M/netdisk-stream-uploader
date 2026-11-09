@@ -142,6 +142,26 @@ python main.py resume <task_id> --verify=stat   # 只比指纹
 python main.py resume <task_id> --verify=off    # 跳过校验（确定源没变时用）
 ```
 
+### 查找文件在第几卷
+
+自包含布局（`--layout self-contained`）会把"哪一卷装了哪些文件"记进本地数据库，所以可以离线查：
+
+```bash
+python main.py find c.pdf              # 全部任务里找
+python main.py find photos --task <id> # 只在某个任务里找
+```
+
+```
+找到 1 处：
+  src/docs/c.pdf
+    任务 8f92e68213c3c048（demo） 第 2 卷
+    /apps/StreamPack/demo.part0002.zip
+```
+
+界面里是 **设置 → 查找文件…**（`Ctrl+F`）。
+
+连续流布局不记录这个映射（一卷里只有字节碎片，没有完整文件），所以查不到是正常的。
+
 ### 图形界面
 
 ```bash

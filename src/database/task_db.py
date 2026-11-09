@@ -97,6 +97,7 @@ class TaskDB:
             'volumes': [
                 ('size_bytes', 'INTEGER'),      # 该卷字节数
                 ('start_offset', 'INTEGER'),    # 该卷在整条流中的起始偏移
+                ('files_json', 'TEXT'),         # 该卷包含的文件（self-contained）
             ],
         }
         for table, columns in wanted.items():
@@ -224,14 +225,19 @@ class TaskDB:
                       local_temp_path: Optional[str] = None,
                       md5: Optional[str] = None,
                       size_bytes: Optional[int] = None,
-                      start_offset: Optional[int] = None) -> None:
+                      start_offset: Optional[int] = None,
+                      files: Optional[List[str]] = None) -> None:
         """
         写入（或更新）一条分卷记录。
 
         压缩器在写出每一卷时就调用它，此时上传线程还没开始，所以记录先以
         pending 状态落库；上传线程随后只会更新 status。
+
+        files 只在 self-contained 布局下有意义：记录该卷装了哪些文件，
+        供 `find` 离线查询。
         """
         now = time.time()
+        files_json = json.dumps(files) if files else None
         with self._write_lock:
             with self._connect() as conn:
                 row = conn.execute(
@@ -242,18 +248,59 @@ class TaskDB:
                     conn.execute("""
                         INSERT INTO volumes
                         (task_id, part_number, remote_path, local_temp_path, md5,
-                         size_bytes, start_offset, status, created_at, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         size_bytes, start_offset, files_json, status, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (task_id, part_number, remote_path, local_temp_path, md5,
-                          size_bytes, start_offset, 'pending', now, now))
+                          size_bytes, start_offset, files_json, 'pending', now, now))
                 else:
                     conn.execute("""
                         UPDATE volumes
                         SET remote_path = ?, local_temp_path = ?, md5 = ?,
-                            size_bytes = ?, start_offset = ?, updated_at = ?
+                            size_bytes = ?, start_offset = ?,
+                            files_json = COALESCE(?, files_json), updated_at = ?
                         WHERE task_id = ? AND part_number = ?
                     """, (remote_path, local_temp_path, md5, size_bytes,
-                          start_offset, now, task_id, part_number))
+                          start_offset, files_json, now, task_id, part_number))
+
+    def find_files(self, keyword: str, task_id: Optional[str] = None,
+                   limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        在分卷记录里按文件名搜索（不联网）。
+
+        返回每项的 task_id / part_number / remote_path / arcname。
+        """
+        pattern = f"%{keyword}%"
+        sql = """
+            SELECT v.task_id, v.part_number, v.remote_path, v.files_json, t.base_name
+            FROM volumes v JOIN tasks t ON t.task_id = v.task_id
+            WHERE v.files_json IS NOT NULL
+        """
+        params: List[Any] = []
+        if task_id:
+            sql += " AND v.task_id = ?"
+            params.append(task_id)
+        sql += " ORDER BY v.task_id, v.part_number"
+
+        hits: List[Dict[str, Any]] = []
+        with self._connect() as conn:
+            conn.row_factory = sqlite3.Row
+            for row in conn.execute(sql, params):
+                try:
+                    files = json.loads(row['files_json'])
+                except (TypeError, ValueError):
+                    continue
+                for arcname in files:
+                    if keyword.lower() in str(arcname).lower():
+                        hits.append({
+                            'task_id': row['task_id'],
+                            'base_name': row['base_name'],
+                            'part_number': row['part_number'],
+                            'remote_path': row['remote_path'],
+                            'arcname': arcname,
+                        })
+                        if len(hits) >= limit:
+                            return hits
+        return hits
 
     def get_volume(self, task_id: str, part_number: int) -> Optional[Dict[str, Any]]:
         with self._connect() as conn:

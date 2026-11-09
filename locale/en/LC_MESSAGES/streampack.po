@@ -733,3 +733,55 @@ msgstr "Continuous has the best space utilisation, but every volume must be join
 msgid "连续流（需拼接）"
 msgstr "Continuous (needs joining)"
 
+#: src\cli.py:514
+msgid "    任务 {0}（{1}） 第 {2} 卷"
+msgstr "    task {0} ({1}), volume {2}"
+
+#: src\gui\qt_app.py:227
+msgid "… 另有 {0} 处"
+msgstr "… and {0} more"
+
+#: src\cli.py:500
+msgid "只在指定任务里找"
+msgstr "Search only within this task"
+
+#: src\cli.py:508
+msgid "只有 --layout self-contained 的任务会记录分卷与文件的对应关系"
+msgstr "Only --layout self-contained tasks record the volume-to-file mapping"
+
+#: src\gui\qt_app.py:229
+msgid "找到 {0} 处"
+msgstr "{0} match(es)"
+
+#: src\cli.py:511
+msgid "找到 {0} 处："
+msgstr "{0} match(es):"
+
+#: src\gui\qt_app.py:206
+msgid "文件名包含："
+msgstr "File name contains:"
+
+#: src\gui\qt_app.py:206
+msgid "查找文件"
+msgstr "Find file"
+
+#: src\gui\qt_app.py:168
+msgid "查找文件…"
+msgstr "Find file…"
+
+#: src\cli.py:507
+msgid "没有找到包含「{0}」的文件"
+msgstr "No file matching 「{0}」"
+
+#: src\gui\qt_app.py:216
+msgid "没有找到包含「{0}」的文件。\n只有自包含布局的任务会记录分卷与文件的对应关系。"
+msgstr "No file matching 「{0}」.\nOnly self-contained tasks record the volume-to-file mapping."
+
+#: src\gui\qt_app.py:222
+msgid "第 {0} 卷"
+msgstr "volume {0}"
+
+#: src\cli.py:501
+msgid "查找某个文件在哪个分卷里（查本地记录，不联网）。"
+msgstr "Find which volume holds a file (local records only, no network)."
+

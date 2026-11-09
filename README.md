@@ -142,6 +142,26 @@ python main.py resume <task_id> --verify=stat   # fingerprint only
 python main.py resume <task_id> --verify=off    # skip the check (only if you know nothing changed)
 ```
 
+### Find which volume holds a file
+
+The self-contained layout (`--layout self-contained`) records the volume-to-file mapping in the local database, so this works offline:
+
+```bash
+python main.py find c.pdf              # across all tasks
+python main.py find photos --task <id> # within one task
+```
+
+```
+找到 1 处：
+  src/docs/c.pdf
+    任务 8f92e68213c3c048（demo） 第 2 卷
+    /apps/StreamPack/demo.part0002.zip
+```
+
+In the GUI: **Settings → Find file…** (`Ctrl+F`).
+
+The continuous layout keeps no such mapping — a volume holds byte fragments, not whole files — so finding nothing there is expected.
+
 ### Graphical interface
 
 ```bash
