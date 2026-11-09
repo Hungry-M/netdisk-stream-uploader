@@ -7,21 +7,22 @@ from src.database.task_db import TaskDB
 from src.storage.local import LocalDirProvider
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(autouse=True)
 def fixed_test_language():
     """
-    固定测试语言为中文。
+    每个用例开始前固定为中文。
 
-    很多用例断言的是中文文案（"已中断"、"设置"…）。默认的 auto 会跟随系统
-    语言，CI 上是 en-US，本地是 zh-CN —— 同一份代码在两边结果不同。
-    这里统一成 zh，需要切语言的用例（tests/test_i18n.py）自己调 set_language。
+    很多用例断言中文文案（"已中断"、"设置"…），而语言是进程级全局状态，
+    前面某个用例切到 en 就会污染后面的用例 —— CI（en-US）上因此失败，
+    本地却因为"恰好"还用着旧目录而通过。
+
+    用 function scope 而不是 session scope：每条用例都从干净状态开始。
+    需要切语言的用例（tests/test_i18n.py）在用例内部自己调 set_language。
     """
-    from src.i18n import current_language, set_language
+    from src.i18n import set_language
 
-    previous = current_language()
     set_language("zh")
     yield
-    set_language(previous)
 
 
 @pytest.fixture(scope="session")
