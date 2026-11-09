@@ -104,8 +104,11 @@ def _ask_app_name() -> None:
         return
 
     print("你的应用名决定网盘可写目录：/apps/<应用名>")
-    app_name = click.prompt("应用名", default=current).strip()
-    if not app_name or app_name == current:
+    print(f"直接回车沿用 {current}；注册时填的是别的名字再输入。")
+    app_name = click.prompt("应用名", default="", show_default=False).strip()
+    if not app_name:
+        app_name = current
+    if app_name == current:
         return
 
     try:
