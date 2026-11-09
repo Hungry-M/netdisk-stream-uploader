@@ -311,10 +311,12 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
             click.echo(_f("[WARN] 任务 {0} 部分完成。上传 {1}, 跳过 {2}, 失败 {3}",
                           task_id, len(uploaded), len(skipped), len(failed)))
             click.echo(_f("    使用 `resume {0}` 重试失败分卷", task_id))
+            _print_network_hint()
         else:
             db.update_task_status(task_id, TaskStatus.FAILED,
                                   error_message=_f("所有分卷失败: {0}", failed))
             click.echo(_f("[ERR] 任务 {0} 全部失败", task_id), err=True)
+            _print_network_hint()
 
     except FileTooLargeForVolume as e:
         db.update_task_status(task_id, TaskStatus.FAILED, error_message=str(e))
@@ -377,6 +379,17 @@ def _upload_index(provider, uploader, task: dict, task_id: str,
         click.echo(_f("[OK] 索引已上传: {0}", remote))
     except Exception as e:                      # 索引是附加信息，不该影响任务
         logger.warning(f"索引上传失败（分卷不受影响）: {e}")
+
+
+def _print_network_hint() -> None:
+    """
+    上传失败后给一条可操作提示。
+
+    "写操作超时"通常不是百度挂了，而是本地出口（尤其是系统代理）太慢或不稳。
+    实测：同一任务加 --no-proxy 后一次就成功。
+    """
+    click.echo(_("    若失败是网络/超时：系统代理不稳时可加 --no-proxy 重试；"))
+    click.echo(_("    慢速上行可调小并发：config set max_parallel_workers 2"))
 
 
 def _reset_stale_tasks() -> None:

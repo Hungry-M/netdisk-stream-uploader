@@ -432,6 +432,37 @@ python main.py --no-proxy upload -s ... -f ... -n ...
 
 `--no-proxy` 只影响这一次运行，不会改注册表或环境变量。
 
+**上传超时、部分分卷失败怎么办**
+
+先 `resume`，已成功的分卷会跳过，只重传失败的：
+
+```bash
+python main.py resume <task_id>
+```
+
+仍然失败时按顺序排查：
+
+1. **系统代理不稳**——加 `--no-proxy` 重试（实测同一任务直连一次就过）：
+
+   ```bash
+   python main.py --no-proxy resume <task_id>
+   ```
+
+2. **上行太慢**——默认并发是 CPU 核数 − 1（这台机器 7 个），对慢速上行过多。调小：
+
+   ```bash
+   python main.py config set max_parallel_workers 2
+   ```
+
+3. **重传粒度太粗**——分卷越小，一次失败要重传的越少：
+
+   ```bash
+   python main.py upload ... --volume-size 2M
+   ```
+
+失败信息里会打印每次尝试的耗时（如 `耗时 11.0s`）：几秒就挂通常是连接被中断（代理/防火墙），
+长时间无进展则是上行带宽不足。
+
 **要重新授权吗**
 
 一般不用。access_token 约 30 天过期，程序会自动用 refresh_token 换新；只有刷新也失败时才会提示重新授权。

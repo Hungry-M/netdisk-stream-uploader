@@ -70,6 +70,7 @@ class VolumeUploader:
 
         last_error: Optional[Exception] = None
         for attempt in range(1, attempts + 1):
+            started = time.time()
             try:
                 volume_file.seek(0)
                 self.provider.upload_file(remote_path, volume_file, size)
@@ -77,6 +78,7 @@ class VolumeUploader:
                     logger.info(f"[OK]   分卷 {part_number} 第 {attempt} 次尝试成功")
                 return
             except Exception as e:
+                elapsed = time.time() - started
                 last_error = e
                 retryable = getattr(e, "retryable", True)
                 if not retryable:
@@ -88,8 +90,8 @@ class VolumeUploader:
                     break
                 delay = backoff * (2 ** (attempt - 1))
                 logger.warning(
-                    f"[RETRY] 分卷 {part_number} 第 {attempt}/{attempts} 次失败: {e}；"
-                    f"{delay:.1f}s 后重试"
+                    f"[RETRY] 分卷 {part_number} 第 {attempt}/{attempts} 次失败"
+                    f"（耗时 {elapsed:.1f}s）: {e}；{delay:.1f}s 后重试"
                 )
                 if delay > 0:
                     time.sleep(delay)

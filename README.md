@@ -437,6 +437,37 @@ python main.py --no-proxy upload -s ... -f ... -n ...
 
 `--no-proxy` affects this invocation only; it does not touch the registry or environment variables.
 
+**Upload timeouts, some volumes failing**
+
+Run `resume` first — completed volumes are skipped:
+
+```bash
+python main.py resume <task_id>
+```
+
+If it still fails, in order:
+
+1. **Flaky system proxy** — retry with `--no-proxy` (in practice the same task went through in one pass):
+
+   ```bash
+   python main.py --no-proxy resume <task_id>
+   ```
+
+2. **Slow uplink** — the default concurrency is CPU cores − 1 (7 here), too many for a slow link:
+
+   ```bash
+   python main.py config set max_parallel_workers 2
+   ```
+
+3. **Coarse retry granularity** — smaller volumes mean less to re-upload per failure:
+
+   ```bash
+   python main.py upload ... --volume-size 2M
+   ```
+
+Failure logs include how long each attempt took (`耗时 11.0s`): failing after a few seconds usually
+means the connection was cut (proxy/firewall); no progress for a long time means the uplink is saturated.
+
 **Do I need to re-authorize often**
 
 Normally no. The access token expires in about 30 days and is refreshed automatically with the refresh token; you are only asked to authorize again when the refresh itself fails.

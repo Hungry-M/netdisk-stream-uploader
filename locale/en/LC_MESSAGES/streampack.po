@@ -789,3 +789,10 @@ msgstr "Find which volume holds a file (local records only, no network)."
 msgid "无法通过系统代理连接百度。请确认代理软件已启动；或本次运行加 --no-proxy 直连。"
 msgstr "Cannot reach Baidu through the system proxy. Make sure your proxy client is running, or add --no-proxy to bypass it for this run."
 
+#: src\cli.py
+msgid "    若失败是网络/超时：系统代理不稳时可加 --no-proxy 重试；"
+msgstr "    If the failure was network/timeout: retry with --no-proxy when the system proxy is flaky;"
+
+#: src\cli.py
+msgid "    慢速上行可调小并发：config set max_parallel_workers 2"
+msgstr "    On a slow uplink, lower the concurrency: config set max_parallel_workers 2"
