@@ -16,6 +16,10 @@ from PySide6.QtWidgets import (
 
 from src.config.settings import build_remote_root
 from src.config.user_config import build_settings
+from src.core.compressor import (
+    LAYOUT_CONTINUOUS, LAYOUT_SELF_CONTAINED, PACK_BY_FOLDER, PACK_BY_SIZE,
+    effective_volume_bytes,
+)
 from src.i18n import _, _f
 
 DEFAULT_VOLUME_SIZE = 1024 ** 3          # 与 CLI 保持一致：1 GB
@@ -56,6 +60,8 @@ def build_upload_args(
     provider: Optional[str] = None,
     resume: bool = False,
     ext: Optional[str] = None,
+    layout: Optional[str] = None,
+    pack_by: Optional[str] = None,
 ) -> List[str]:
     """拼 `upload` 子命令的参数。密码不在这里，走环境变量，避免出现在命令行里。"""
     args = ["upload", "--source", str(source), "--files", ",".join(files), "--name", name]
@@ -65,6 +71,10 @@ def build_upload_args(
         args += ["--volume-size", str(int(volume_size))]
     if ext and ext != ".zip":
         args += ["--ext", ext]
+    if layout and layout != LAYOUT_CONTINUOUS:
+        args += ["--layout", layout]
+    if pack_by and pack_by != PACK_BY_SIZE:
+        args += ["--pack-by", pack_by]
     if provider:
         args += ["--provider", provider]
     if resume:
@@ -168,6 +178,29 @@ class NewTaskDialog(QDialog):
         self.resume_check = QCheckBox(_("同名任务已存在时续传"))
         self.resume_check.setChecked(True)
 
+        self.layout_combo = QComboBox()
+        self.layout_combo.addItem(_("连续流（需拼接）"), LAYOUT_CONTINUOUS)
+        self.layout_combo.addItem(_("自包含（每卷可单独解压）"), LAYOUT_SELF_CONTAINED)
+        self.layout_combo.currentIndexChanged.connect(self._on_layout_changed)
+
+        self.pack_by_combo = QComboBox()
+        self.pack_by_combo.addItem(_("按大小装满"), PACK_BY_SIZE)
+        self.pack_by_combo.addItem(_("优先整文件夹"), PACK_BY_FOLDER)
+        self.pack_by_combo.setEnabled(False)
+
+        self.layout_hint = QLabel(_("连续流体积利用率最高，但任何一卷都要拼接后才能打开"))
+        self.layout_hint.setWordWrap(True)
+        self.layout_hint.setEnabled(False)
+
+        layout_box = QVBoxLayout()
+        layout_box.setContentsMargins(0, 0, 0, 0)
+        layout_box.setSpacing(2)
+        layout_box.addWidget(self.layout_combo)
+        layout_box.addWidget(self.pack_by_combo)
+        layout_box.addWidget(self.layout_hint)
+        layout_widget = QWidget()
+        layout_widget.setLayout(layout_box)
+
         form = QFormLayout()
         form.addRow(_("内容"), pick_row)
         form.addRow(_("名称"), self.name_edit)
@@ -176,6 +209,7 @@ class NewTaskDialog(QDialog):
         form.addRow(_("扩展名"), ext_widget)
         form.addRow(_("加密口令"), self.password_edit)
         form.addRow(_("存储后端"), self.provider_combo)
+        form.addRow(_("分卷布局"), layout_widget)
         form.addRow("", self.resume_check)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -196,6 +230,30 @@ class NewTaskDialog(QDialog):
     def _update_remote_preview(self) -> None:
         path = build_remote_root(self.app_name_edit.text(), self.subdir_edit.text())
         self.remote_preview.setText(_f("将上传到 {0}", path))
+
+    def _on_layout_changed(self) -> None:
+        self_contained = self.layout_combo.currentData() == LAYOUT_SELF_CONTAINED
+        self.pack_by_combo.setEnabled(self_contained)
+        self.layout_hint.setText(
+            _("每卷是独立 ZIP，可单独解压；单文件不能超过分卷大小")
+            if self_contained else
+            _("连续流体积利用率最高，但任何一卷都要拼接后才能打开")
+        )
+
+    def oversized_files(self) -> List[Path]:
+        """self-contained 模式下，哪些文件单独一个就装不进一卷。"""
+        if self.layout_combo.currentData() != LAYOUT_SELF_CONTAINED or self._source is None:
+            return []
+        limit = effective_volume_bytes(self.volume_spin.value() * 1024 * 1024)
+        result = []
+        for arcname in self._files:
+            path = self._source / arcname
+            try:
+                if path.stat().st_size > limit:
+                    result.append(path)
+            except OSError:
+                continue
+        return result
 
     def _pick_dir(self) -> None:
         path = QFileDialog.getExistingDirectory(self, _("选择要打包的文件夹"))
@@ -231,6 +289,25 @@ class NewTaskDialog(QDialog):
         if not self.name_edit.text().strip():
             QMessageBox.warning(self, _("新建上传任务"), _("请填写压缩包名称"))
             return
+
+        oversized = self.oversized_files()
+        if oversized:
+            names = "\n".join(
+                f"· {p.relative_to(self._source).as_posix()}"
+                f"（{p.stat().st_size / 1024 ** 3:.2f} GB）"
+                for p in oversized[:5]
+            )
+            if len(oversized) > 5:
+                names += _f("\n… 另有 {0} 个", len(oversized) - 5)
+            QMessageBox.warning(
+                self, _("新建上传任务"),
+                _f("自包含布局要求每个文件完整落在一卷内，"
+                   "以下文件超过分卷大小（{0} MB）：\n\n{1}\n\n"
+                   "请调大分卷大小，或改用连续流。",
+                   self.volume_spin.value(), names),
+            )
+            return
+
         self.accept()
 
     # ---- 结果 ----
@@ -248,6 +325,8 @@ class NewTaskDialog(QDialog):
             "volume_size": self.volume_spin.value() * 1024 * 1024,
             "ext": self.ext_edit.text().strip() or ".zip",
             "provider": self.provider_combo.currentText(),
+            "layout": self.layout_combo.currentData(),
+            "pack_by": self.pack_by_combo.currentData(),
             "resume": self.resume_check.isChecked(),
             "password": self.password_edit.text(),
         }
@@ -258,4 +337,5 @@ class NewTaskDialog(QDialog):
             v["source"], v["files"], v["name"],
             remote=v["remote"], volume_size=v["volume_size"],
             provider=v["provider"], resume=v["resume"], ext=v["ext"],
+            layout=v["layout"], pack_by=v["pack_by"],
         )

@@ -36,6 +36,7 @@ class VolumeInfo:
     md5: str
     size: int
     start_offset: int     # 该卷在整条 ZIP 字节流中的起始偏移
+    files: tuple = ()     # self-contained 模式下这一卷包含的文件（相对路径）
 
 
 class VolumeMismatchError(Exception):
@@ -213,6 +214,10 @@ LAYOUT_CONTINUOUS = 'continuous'          # 一个 ZIP 切成 N 段（默认）
 LAYOUT_SELF_CONTAINED = 'self-contained'  # 每卷一个独立 ZIP
 LAYOUTS = (LAYOUT_CONTINUOUS, LAYOUT_SELF_CONTAINED)
 
+PACK_BY_SIZE = 'size'        # 只按大小装箱
+PACK_BY_FOLDER = 'folder'    # 尽量让同一个顶层文件夹落在少数卷里
+PACK_BYS = (PACK_BY_SIZE, PACK_BY_FOLDER)
+
 # 装箱时留的余量：deflate 最坏会略微膨胀（约 0.03%），
 # 按未压缩大小装到 99.5% 可以保证压缩后仍不超过 volume_size。
 _PACK_SAFETY = 0.995
@@ -236,24 +241,72 @@ class FileTooLargeForVolume(Exception):
         self.limit = limit
 
 
-def pack_volumes(entries: List[Entry], max_bytes: int) -> List[List[Entry]]:
+def effective_volume_bytes(max_bytes: int) -> int:
+    """扣掉安全余量后，真正可用于装未压缩数据的上限。"""
+    return max(1, int(max_bytes * _PACK_SAFETY))
+
+
+def oversized_entries(entries: List[Entry], max_bytes: int) -> List[Entry]:
+    """
+    预检：哪些文件单独一个就超过分卷大小。
+
+    self-contained 模式下这种文件根本装不进任何一卷，
+    与其压缩到一半再抛错，不如在调用 provider 之前就列出来。
+    """
+    limit = effective_volume_bytes(max_bytes)
+    return [e for e in entries if e.size > limit]
+
+
+def pack_volumes(entries: List[Entry], max_bytes: int,
+                 pack_by: str = PACK_BY_SIZE) -> List[List[Entry]]:
     """
     按文件顺序装箱：累加到放不下就另起一卷。
+
+    pack_by='folder' 时按顶层文件夹分组，先尽量整个文件夹放一卷，
+    放不下再在文件夹内部按大小切分——注意**不改变卷大小上限**，
+    只是让"解压某一卷能拿到一个完整文件夹"的概率更高。
 
     保持原始顺序（不重排），这样同样的输入总得到同样的分卷划分。
     """
     if max_bytes <= 0:
         raise ValueError("分卷大小必须大于 0")
+    if pack_by not in PACK_BYS:
+        raise ValueError(f"未知的装箱方式: {pack_by!r}（可用 {', '.join(PACK_BYS)}）")
 
-    effective = max(1, int(max_bytes * _PACK_SAFETY))
+    effective = effective_volume_bytes(max_bytes)
+    for entry in entries:
+        if entry.size > effective:
+            raise FileTooLargeForVolume(entry.arcname, entry.size, max_bytes)
+
+    if pack_by == PACK_BY_SIZE:
+        return _pack_by_size(entries, effective)
+
+    buckets: List[List[Entry]] = []
+    for _folder, group in _group_by_top_folder(entries):
+        buckets.extend(_pack_by_size(group, effective))
+    return buckets
+
+
+def _group_by_top_folder(entries: List[Entry]):
+    """按 arcname 的第一段分组，保持首次出现顺序。"""
+    order: List[str] = []
+    groups = {}
+    for entry in entries:
+        folder = entry.arcname.split('/', 1)[0] if '/' in entry.arcname else ''
+        if folder not in groups:
+            groups[folder] = []
+            order.append(folder)
+        groups[folder].append(entry)
+    for folder in order:
+        yield folder, groups[folder]
+
+
+def _pack_by_size(entries: List[Entry], effective: int) -> List[List[Entry]]:
     buckets: List[List[Entry]] = []
     current: List[Entry] = []
     current_bytes = 0
 
     for entry in entries:
-        if entry.size > effective:
-            raise FileTooLargeForVolume(entry.arcname, entry.size, max_bytes)
-
         if current and current_bytes + entry.size > effective:
             buckets.append(current)
             current = []
@@ -278,6 +331,7 @@ def compress_and_split(
     password: Optional[str] = None,
     task_id: Optional[str] = None,
     layout: str = LAYOUT_CONTINUOUS,
+    pack_by: str = PACK_BY_SIZE,
 ) -> Generator[BinaryIO, None, None]:
     """
     流式压缩并按 layout 切分，逐卷 yield（调用方负责 close + remove）。
@@ -289,6 +343,7 @@ def compress_and_split(
         gen = _self_contained_volumes(
             source_dir, file_list, volume_size_bytes, resource_manager,
             fixed_modified_at, on_volume_complete, manifest, password, task_id,
+            pack_by,
         )
     elif layout == LAYOUT_CONTINUOUS:
         gen = _continuous_volumes(
@@ -332,6 +387,7 @@ def _self_contained_volumes(
     manifest: Optional[dict],
     password: Optional[str],
     task_id: Optional[str],
+    pack_by: str = PACK_BY_SIZE,
 ) -> Generator[BinaryIO, None, None]:
     entries = list(iter_entries(source_dir, file_list))
     if not entries:
@@ -341,7 +397,7 @@ def _self_contained_volumes(
     if password is not None and not task_id:
         raise ValueError("加密归档必须提供 task_id（盐由它派生）")
 
-    buckets = pack_volumes(entries, volume_size_bytes)
+    buckets = pack_volumes(entries, volume_size_bytes, pack_by=pack_by)
     temp_dir = resource_manager.decide_volume_temp_dir()
     os.makedirs(temp_dir, exist_ok=True)
     logger.info(
@@ -398,6 +454,7 @@ def _self_contained_volumes(
             md5=hasher.hexdigest(),
             size=size,
             start_offset=stream_offset,
+            files=tuple(e.arcname for e in bucket),
         )
         stream_offset += size
         logger.info(

@@ -669,3 +669,67 @@ msgstr "      self-contained mode requires every file to fit inside one volume. 
 msgid "分卷布局：continuous=一个 ZIP 切成多段（需拼接）；self-contained=每卷一个独立 ZIP（可单独解压，但单文件不能超过分卷）"
 msgstr "Volume layout: continuous = one ZIP cut into segments (must be joined); self-contained = one independent ZIP per volume (each opens on its own, but a single file cannot exceed the volume size)"
 
+#: src\gui\new_task_dialog.py:301
+msgid "\n… 另有 {0} 个"
+msgstr "\n… and {0} more"
+
+#: src\cli.py:479
+msgid "      self-contained 模式下每个文件必须完整落在一卷内。可选："
+msgstr "      self-contained mode requires every file to fit inside one volume. Options:"
+
+#: src\cli.py:475
+msgid "      {0}  {1}"
+msgstr "      {0}  {1}"
+
+#: src\cli.py:478
+msgid "      … 另有 {0} 个"
+msgstr "      … and {0} more"
+
+#: src\cli.py:470
+msgid "[ERR] {0} 个文件超过分卷大小（上限 {1}，留 0.5% 余量后 {2}）"
+msgstr "[ERR] {0} file(s) exceed the volume size (limit {1}; {2} after the 0.5% margin)"
+
+#: src\cli.py:368
+msgid "[OK] 索引已上传: {0}"
+msgstr "[OK] index uploaded: {0}"
+
+#: src\cli.py:472
+msgid "{0:.2f} GB"
+msgstr "{0:.2f} GB"
+
+#: src\gui\new_task_dialog.py:188
+msgid "优先整文件夹"
+msgstr "Prefer whole folders"
+
+#: src\gui\new_task_dialog.py:212
+msgid "分卷布局"
+msgstr "Volume layout"
+
+#: src\gui\new_task_dialog.py:187
+msgid "按大小装满"
+msgstr "Fill by size"
+
+#: src\gui\new_task_dialog.py:238
+msgid "每卷是独立 ZIP，可单独解压；单文件不能超过分卷大小"
+msgstr "Each volume is a standalone ZIP and opens on its own; a single file cannot exceed the volume size"
+
+#: src\gui\new_task_dialog.py:304
+msgid "自包含布局要求每个文件完整落在一卷内，以下文件超过分卷大小（{0} MB）：\n\n{1}\n\n请调大分卷大小，或改用连续流。"
+msgstr "The self-contained layout requires every file to fit inside one volume. These files exceed the volume size ({0} MB):\n\n{1}\n\nIncrease the volume size, or switch back to the continuous layout."
+
+#: src\gui\new_task_dialog.py:183
+msgid "自包含（每卷可单独解压）"
+msgstr "Self-contained (each volume opens alone)"
+
+#: src\cli.py:421
+msgid "装箱方式：size=只按大小装满；folder=尽量让同一个顶层文件夹落在少数卷里（只在 self-contained 布局下生效）"
+msgstr "Packing: size = fill by size only; folder = keep a top-level folder within as few volumes as possible (self-contained layout only)"
+
+#: src\gui\new_task_dialog.py:191
+msgid "连续流体积利用率最高，但任何一卷都要拼接后才能打开"
+msgstr "Continuous has the best space utilisation, but every volume must be joined before it opens"
+
+#: src\gui\new_task_dialog.py:182
+msgid "连续流（需拼接）"
+msgstr "Continuous (needs joining)"
+

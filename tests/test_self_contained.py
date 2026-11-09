@@ -162,3 +162,44 @@ def test_encrypted_self_contained_volumes_are_valid_zips(tmp_path):
     path.write_bytes(volumes[0])
     with zipfile.ZipFile(path) as zf:                  # 能打开说明结构完整
         assert zf.namelist()
+
+
+def test_pack_by_folder_keeps_folders_whole():
+    """优先整文件夹：能放下就整组进同一卷，放不下才在组内切"""
+    entries = [
+        entry("photos/a.jpg", 2),
+        entry("photos/b.jpg", 2),
+        entry("docs/c.pdf", 2),
+        entry("docs/d.pdf", 2),
+    ]
+    by_size = pack_volumes(entries, 9, pack_by="size")
+    by_folder = pack_volumes(entries, 9, pack_by="folder")
+
+    # 混装时按大小装满：4 + 4 = 8 ≤ 8.9（留余量），四个文件只占一卷
+    assert len(by_size) == 1
+    # 按文件夹分组后，photos 和 docs 各自成卷
+    assert [[e.arcname for e in b] for b in by_folder] == [
+        ["photos/a.jpg", "photos/b.jpg"],
+        ["docs/c.pdf", "docs/d.pdf"],
+    ]
+
+
+def test_pack_by_folder_splits_oversized_folder():
+    """一个文件夹本身就超过一卷时，仍然按大小在组内切分（不改变上限）"""
+    entries = [entry("big/a", 4), entry("big/b", 4), entry("big/c", 4)]
+    buckets = pack_volumes(entries, 9, pack_by="folder")
+    assert all(sum(e.size for e in b) <= 9 * 0.995 for b in buckets)
+    assert len(buckets) == 2
+
+
+def test_pack_by_rejects_unknown_value():
+    with pytest.raises(ValueError):
+        pack_volumes([entry("a", 1)], 10, pack_by="whatever")
+
+
+def test_oversized_entries_reports_before_writing(tmp_path):
+    from src.core.compressor import oversized_entries
+
+    entries = [entry("ok", 5), entry("big", 20)]
+    found = oversized_entries(entries, 10)
+    assert [e.arcname for e in found] == ["big"]

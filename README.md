@@ -421,9 +421,27 @@ Each volume is an **independent ZIP** — pick any one, open it with 7-Zip, done
 
 | Constraint | Detail |
 |:---|:---|
-| A file cannot exceed the volume | A 12 GB video will not fit a 1 GB volume; it fails fast — raise `--volume-size` or go back to the default layout |
+| A file cannot exceed the volume | A 12 GB video will not fit a 1 GB volume; **the check happens before uploading**, listing the offending files, instead of failing halfway |
 | Packing is by uncompressed size | with 0.5% headroom, so two 1 GB files do not fit a 2 GB volume |
 | Resume granularity is the whole volume | a failed volume is re-uploaded entirely (usually a group of files) |
+
+**Keep folders together**:
+
+```bash
+python main.py upload ... --layout self-contained --pack-by folder
+```
+
+`--pack-by folder` groups by top-level folder and keeps a folder in one volume when it fits, splitting inside the folder only when necessary — **the volume size cap is unchanged**; it just makes "unzip one volume, get one whole folder" more likely. The default `--pack-by size` simply fills volumes.
+
+**Index file**: after the task completes, a `<name>.index.json` is uploaded too, mapping each volume to the files it holds:
+
+```json
+{"layout": "self-contained", "pack_by": "folder",
+ "volumes": [{"part": 1, "remote_path": ".../backup.part0001.zip",
+              "files": ["photos/a.jpg", "photos/b.jpg"]}]}
+```
+
+Use it to find which volume holds a given file. A failed index upload does not affect the volumes.
 
 The two layouts produce different task IDs, so they never collide; `resume` follows the layout recorded when the task was created.
 

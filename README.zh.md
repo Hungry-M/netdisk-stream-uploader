@@ -415,9 +415,27 @@ python main.py upload -s D:\data -f . -n backup --volume-size 1G --layout self-c
 
 | 限制 | 说明 |
 |:---|:---|
-| 单文件不能超过分卷 | 一个 12 GB 的视频装不进 1 GB 卷，会直接报错；调大 `--volume-size` 或改回默认布局 |
+| 单文件不能超过分卷 | 一个 12 GB 的视频装不进 1 GB 卷；**上传前会先检查并列出超限文件**，不会压到一半才失败 |
 | 装箱按未压缩大小 | 留 0.5% 余量，所以两个 1 GB 文件放不进 2 GB 卷 |
 | 续传粒度变整卷 | 某一卷失败要重传整卷（通常是几个文件的组合） |
+
+**让文件夹尽量整卷存放**：
+
+```bash
+python main.py upload ... --layout self-contained --pack-by folder
+```
+
+`--pack-by folder` 会按顶层文件夹分组，能整组放进一卷就放，放不下才在组内切分——**不会改变卷大小上限**，只是让"解压某一卷就能拿到一个完整文件夹"的概率更高。默认 `--pack-by size` 只按大小装满。
+
+**索引文件**：任务完成后会额外上传一份 `<名称>.index.json`，记录每一卷包含哪些文件：
+
+```json
+{"layout": "self-contained", "pack_by": "folder",
+ "volumes": [{"part": 1, "remote_path": ".../backup.part0001.zip",
+              "files": ["photos/a.jpg", "photos/b.jpg"]}]}
+```
+
+想找某个文件在第几卷，查它就行。索引上传失败不影响分卷本身。
 
 两种布局的任务 ID 不同，不会互相干扰；`resume` 会按任务创建时的布局继续。
 
