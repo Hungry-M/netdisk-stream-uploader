@@ -83,16 +83,28 @@ class BaiduProvider:
 
     # ---------- 内部 ----------
 
+    def _ensure_client(self, interactive: bool = False):
+        """
+        拿到 BaiduClient。
+
+        interactive=True 时才允许交互式输入 AppKey/SecretKey——首次运行就是这条路。
+        以前这里写死 prompt_if_missing=False，导致首次上传直接抛"未找到凭证"，
+        用户根本走不到输入提示。
+        """
+        if self._client is not None:
+            return self._client
+
+        from src.config.credentials import load_credentials
+        from src.baidu.client import BaiduClient
+
+        creds = load_credentials(prompt_if_missing=interactive)
+        self._client = BaiduClient(creds.client_id, creds.client_secret,
+                                   creds.token_file)
+        return self._client
+
     @property
     def client(self):
-        if self._client is None:
-            from src.config.credentials import load_credentials
-            from src.baidu.client import BaiduClient
-
-            creds = load_credentials(prompt_if_missing=False)
-            self._client = BaiduClient(creds.client_id, creds.client_secret,
-                                       creds.token_file)
-        return self._client
+        return self._ensure_client(interactive=False)
 
     def _call(self, action: str, func, *args, **kwargs):
         try:
@@ -103,7 +115,7 @@ class BaiduProvider:
     # ---------- StorageProvider ----------
 
     def authenticate(self, interactive: bool = True) -> None:
-        client = self._call("加载凭证", lambda: self.client)
+        client = self._call("加载凭证", lambda: self._ensure_client(interactive))
         try:
             client.oauth.get_valid_access_token(interactive=interactive)
         except RuntimeError as e:

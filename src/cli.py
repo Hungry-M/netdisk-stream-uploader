@@ -25,6 +25,7 @@ from src.core.compressor import (
 )
 from src.core.uploader import VolumeUploader, UploadResult
 from src.storage import available_providers, create_provider
+from src.storage.base import ProviderError
 from src.database.task_db import TaskDB, TaskStatus
 
 logger = get_logger(__name__)
@@ -223,7 +224,14 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
     _verify_source(task, db, task_id, verify)
     pwd = _resolve_password(task, password, task_id)
 
-    provider = _make_provider(provider_name)
+    try:
+        provider = _make_provider(provider_name)
+    except ProviderError as e:
+        # 首次运行没凭证、路径不对、权限不足都走这里：给一行提示，不要整屏 traceback
+        db.update_task_status(task_id, TaskStatus.FAILED, error_message=str(e))
+        click.echo(_f("[ERR] {0}", e), err=True)
+        raise SystemExit(1)
+
     uploader = VolumeUploader(provider, rm, db=db, task_id=task_id)
     uploader.remote_suffix = task.get('remote_suffix', '.zip')
 

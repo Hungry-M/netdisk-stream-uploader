@@ -11,6 +11,7 @@
 """
 import json
 import os
+import sys
 from src.logger import get_logger
 from pathlib import Path
 from typing import Optional
@@ -66,14 +67,22 @@ def load_credentials(prompt_if_missing: bool = True) -> Credentials:
             f"BAIDU_CLIENT_SECRET，或在 {cred_path} 中配置。"
         )
 
+    # 没有可交互的终端时不能去 input()：会永久阻塞（CI、被重定向的 stdout、
+    # 某些 IDE 的运行窗口）。宁可报错让用户显式设置。
+    if not sys.stdin or not sys.stdin.isatty():
+        raise RuntimeError(
+            "未找到百度凭证，且当前不是交互式终端，无法提示输入。\n"
+            "请在能输入的终端里运行，或设置 BAIDU_CLIENT_ID / BAIDU_CLIENT_SECRET。"
+        )
+
     import click
     print(f"\n首次运行，请输入百度网盘应用凭证")
-    print(f"（将保存到 ~/.netdisk_uploader/credentials.json，该文件不会被提交到版本控制）\n")
+    print(f"（将保存到 {cred_path}，该文件不会被提交到版本控制）\n")
     client_id = click.prompt("AppKey").strip()
     client_secret = click.prompt("SecretKey").strip()
 
     save_credentials(client_id, client_secret)
-    print(f"✅ 凭证已保存到 ~/.netdisk_uploader/credentials.json\n")
+    print(f"✅ 凭证已保存到 {cred_path}\n")
 
     _ask_app_name()
     return Credentials(client_id, client_secret)
