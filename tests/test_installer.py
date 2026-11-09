@@ -181,3 +181,45 @@ def test_shortcut_failure_only_warns(tmp_path, monkeypatch):
     assert data["ok"] is True
     assert data["shortcut"] is None
     assert any("快捷方式创建失败" in w for w in data["warnings"])
+
+
+def test_register_uninstall_sets_display_icon(tmp_path, monkeypatch):
+    """「设置 → 应用」里显示的图标来自 DisplayIcon，漏了就是默认图标"""
+    import sys
+    import types
+
+    fake = types.ModuleType("winreg")
+    fake.HKEY_CURRENT_USER = object()
+    fake.REG_SZ = 1
+    fake.REG_DWORD = 4
+    captured = {}
+
+    class Key:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    fake.CreateKey = lambda root, path: Key()
+    fake.SetValueEx = lambda key, name, reserved, kind, value: captured.__setitem__(name, value)
+    monkeypatch.setitem(sys.modules, "winreg", fake)
+
+    inst.register_uninstall(tmp_path, "1.2.3")
+
+    assert captured["DisplayIcon"].endswith("streampack-gui.exe")
+    assert captured["DisplayName"] == "StreamPack"
+    assert captured["DisplayVersion"] == "1.2.3"
+
+
+def test_choose_directory_falls_back_when_com_unavailable(monkeypatch, tmp_path):
+    """选目录失败（无 COM/被限制）时不能崩，回落到默认路径"""
+    import ctypes
+
+    class Boom:
+        def __getattr__(self, name):
+            raise OSError("no COM here")
+
+    monkeypatch.setattr(ctypes, "windll", Boom(), raising=False)
+    fallback = tmp_path / "default"
+    assert inst.choose_directory(fallback) == fallback

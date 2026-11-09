@@ -102,13 +102,69 @@ def uninstall_command(dest: Path) -> str:
 def register_uninstall(dest: Path, version: str) -> None:
     import winreg
 
+    icon = dest / GUI_EXE
     with winreg.CreateKey(winreg.HKEY_CURRENT_USER, UNINSTALL_KEY) as key:
         winreg.SetValueEx(key, "DisplayName", 0, winreg.REG_SZ, APP_NAME)
         winreg.SetValueEx(key, "DisplayVersion", 0, winreg.REG_SZ, version)
+        winreg.SetValueEx(key, "DisplayIcon", 0, winreg.REG_SZ, str(icon))
         winreg.SetValueEx(key, "InstallLocation", 0, winreg.REG_SZ, str(dest))
         winreg.SetValueEx(key, "UninstallString", 0, winreg.REG_SZ, uninstall_command(dest))
         winreg.SetValueEx(key, "NoModify", 0, winreg.REG_DWORD, 1)
         winreg.SetValueEx(key, "NoRepair", 0, winreg.REG_DWORD, 1)
+
+
+def choose_directory(default: Path) -> Path:
+    """
+    弹系统"选择文件夹"对话框，返回用户选的目录。
+
+    用 SHBrowseForFolderW 而不是 Tkinter：只为选一个目录不值得把 tcl/tk
+    打进安装包（那会多十几 MB）。任何异常都回落到 default。
+    """
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        ole32 = ctypes.windll.ole32
+        shell32 = ctypes.windll.shell32
+
+        ole32.OleInitialize(None)
+
+        class BROWSEINFO(ctypes.Structure):
+            _fields_ = [
+                ("hwndOwner", wintypes.HWND),
+                ("pidlRoot", ctypes.c_void_p),
+                ("pszDisplayName", wintypes.LPWSTR),
+                ("lpszTitle", wintypes.LPCWSTR),
+                ("ulFlags", wintypes.UINT),
+                ("lpfn", ctypes.c_void_p),
+                ("lParam", wintypes.LPARAM),
+                ("iImage", ctypes.c_int),
+            ]
+
+        BIF_RETURNONLYFSDIRS = 0x0001
+        BIF_NEWDIALOGSTYLE = 0x0040
+
+        buffer = ctypes.create_unicode_buffer(260)
+        info = BROWSEINFO()
+        info.hwndOwner = None
+        info.pidlRoot = None
+        info.pszDisplayName = buffer
+        info.lpszTitle = f"选择 {APP_NAME} 的安装位置"
+        info.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE
+
+        pidl = shell32.SHBrowseForFolderW(ctypes.byref(info))
+        if not pidl:
+            return default            # 用户取消 → 用默认位置
+
+        path_buffer = ctypes.create_unicode_buffer(260)
+        if not shell32.SHGetPathFromIDListW(pidl, path_buffer):
+            return default
+
+        chosen = Path(path_buffer.value)
+        # 让用户选的是"父目录"，实际装到 <所选>/StreamPack
+        return chosen if chosen.name == APP_NAME else chosen / APP_NAME
+    except Exception:
+        return default
 
 
 def write_result(path: str, payload: dict) -> None:
@@ -124,6 +180,21 @@ def message(text: str, title: str = APP_NAME) -> None:
         ctypes.windll.user32.MessageBoxW(None, text, title, 0x40)
     except Exception:
         pass
+
+
+def ctypes_confirm(text: str, title: str = APP_NAME) -> bool:
+    """是/否对话框；任何异常都当作"继续"，避免静默取消安装。"""
+    try:
+        import ctypes
+
+        MB_YESNO = 0x04
+        MB_ICONQUESTION = 0x20
+        IDYES = 6
+        return ctypes.windll.user32.MessageBoxW(
+            None, text, title, MB_YESNO | MB_ICONQUESTION
+        ) == IDYES
+    except Exception:
+        return True
 
 
 # ---------- 安装流程 ----------
@@ -170,7 +241,20 @@ def main(argv=None) -> int:
     parser.add_argument("--no-shortcut", action="store_true", help="不创建开始菜单快捷方式")
     args = parser.parse_args(argv)
 
-    dest = Path(args.dir) if args.dir else default_install_dir()
+    if args.dir:
+        dest = Path(args.dir)
+    elif args.silent:
+        dest = default_install_dir()
+    else:
+        # 交互安装：让用户选目录（取消则用默认），再确认一次
+        dest = choose_directory(default_install_dir())
+        answer = ctypes_confirm(
+            f"将安装到：\n{dest}\n\n继续吗？"
+        )
+        if not answer:
+            message("已取消安装。", f"{APP_NAME} 安装")
+            return 1
+
     result = {"ok": False, "version": __version__, "install_dir": str(dest)}
 
     try:
