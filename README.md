@@ -194,6 +194,7 @@ python main.py --debug list              # DEBUG-level logging
 python main.py --quiet list              # WARNING and above only
 python main.py --log-file run.log list   # also write to a log file
 python main.py --lang en list            # switch language (zh / en / auto)
+python main.py --no-proxy list           # ignore the system proxy for this run
 python main.py --version                 # print the version
 python main.py --gui                     # graphical interface
 ```
@@ -422,6 +423,19 @@ The installer is a onefile build: it unpacks itself into the temp directory firs
    ```
 
 Do **not** use `--runtime-tmpdir "."` to unpack next to the exe: that requires starting from a writable directory and leaves `_MEI…` leftovers beside the installer.
+
+**`ProxyError` / `Unable to connect to proxy`**
+
+The program uses the **system proxy** (not proxy environment variables). This error normally means the
+proxy client is not running while the system proxy setting is still enabled. Two options:
+
+```powershell
+# 1) start your proxy client, then retry
+# 2) bypass the proxy for this run only (changes nothing system-wide)
+python main.py --no-proxy upload -s ... -f ... -n ...
+```
+
+`--no-proxy` affects this invocation only; it does not touch the registry or environment variables.
 
 **Do I need to re-authorize often**
 

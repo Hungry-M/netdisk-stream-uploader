@@ -45,6 +45,14 @@ def _map_error(exc: Exception, action: str) -> ProviderError:
     message = str(exc)
     code = _extract_code(message)
 
+    # 代理坏了：重试同一个代理没有意义，直接给可操作的提示
+    from src.net import proxy_hint
+
+    hint = proxy_hint(exc)
+    if hint:
+        return ProviderError(f"{action}失败: {hint}", retryable=False,
+                             errno=code, provider="baidu")
+
     # 网络层：值得重试
     if isinstance(exc, (requests.exceptions.ConnectionError,
                         requests.exceptions.Timeout)):

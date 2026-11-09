@@ -56,7 +56,7 @@ def _parse_global_args(argv: List[str]):
     """
     摘出 main 自己的全局开关，剩下的交给 click。
 
-    支持：--debug / --quiet / --gui / --lang <语言> / --log-file <路径>
+    支持：--debug / --quiet / --gui / --lang <语言> / --log-file <路径> / --no-proxy
     """
     debug = False
     quiet = False
@@ -64,6 +64,7 @@ def _parse_global_args(argv: List[str]):
     log_file: Optional[str] = None
     lang: Optional[str] = None
     show_version = False
+    direct = False
     remaining: List[str] = []
 
     i = 0
@@ -71,6 +72,8 @@ def _parse_global_args(argv: List[str]):
         arg = argv[i]
         if arg in ("--version", "-V"):
             show_version = True
+        elif arg == "--no-proxy":
+            direct = True
         elif arg == "--debug":
             debug = True
         elif arg == "--quiet":
@@ -99,7 +102,7 @@ def _parse_global_args(argv: List[str]):
 
     # --debug 优先于 --quiet
     level = "DEBUG" if debug else ("WARNING" if quiet else "INFO")
-    return mode, level, log_file, lang, show_version, remaining
+    return mode, level, log_file, lang, show_version, direct, remaining
 
 
 def _configured_language() -> str:
@@ -118,12 +121,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     parsed = _parse_global_args(argv)
     if parsed is None:
         return 2
-    mode, level, log_file, lang, show_version, remaining = parsed
+    mode, level, log_file, lang, show_version, direct, remaining = parsed
 
     if show_version:
         from src.version import __version__
         print(f"StreamPack {__version__}")
         return 0
+
+    if direct:
+        from src.net import set_direct
+        set_direct(True)
 
     from src.i18n import set_language
     set_language(lang or _configured_language())

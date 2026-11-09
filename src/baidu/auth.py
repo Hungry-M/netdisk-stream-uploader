@@ -39,7 +39,9 @@ class BaiduOAuth:
 
     def _post(self, url: str, data: Dict) -> Dict:
         """发送 POST 请求并解析 JSON 响应，错误时抛出带详细信息的异常"""
-        resp = requests.post(url, data=data, timeout=15)
+        from src.net import post as net_post
+
+        resp = net_post(url, data=data, timeout=15)
         try:
             json_data = resp.json()
         except ValueError:

@@ -77,7 +77,7 @@ def load_credentials(prompt_if_missing: bool = True) -> Credentials:
 
     import click
     print(f"\n首次运行，请输入百度网盘应用凭证")
-    print(f"（将保存到 {cred_path}，该文件不会被提交到版本控制）\n")
+    print(f"（只保存在本机：{cred_path}）\n")
     client_id = click.prompt("AppKey").strip()
     client_secret = click.prompt("SecretKey").strip()
 

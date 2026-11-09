@@ -194,6 +194,7 @@ python main.py --debug list              # 输出 DEBUG 级日志
 python main.py --quiet list              # 只输出 WARNING 及以上
 python main.py --log-file run.log list   # 同时写入日志文件
 python main.py --lang en list            # 切英文（zh / en / auto）
+python main.py --no-proxy list           # 本次运行忽略系统代理，直连
 python main.py --version                 # 打印版本号
 python main.py --gui                     # 图形界面
 ```
@@ -399,7 +400,8 @@ python main.py config set remote_subdir backups
 
 **安装器提示 `Could not create temporary directory`**
 
-安装器是单文件（onefile），启动时要把自身解包到临时目录。这条错误意味着**临时目录不可写**，而不是包损坏。按顺序检查：
+安装器是单文件（onefile），启动时要把自身解包到临时目录。这条错误意味着**临时目录不可写**，
+而不是包损坏。按顺序检查：
 
 1. 是否从受限环境启动（沙箱、受限令牌、某些企业管控终端）——换成从资源管理器双击；
 2. `%TEMP%` 是否存在、当前用户是否可写：
@@ -416,6 +418,19 @@ python main.py config set remote_subdir backups
    ```
 
 不要用 `--runtime-tmpdir "."` 把解包目录搬到 exe 旁边：那样要求从可写目录启动，还会在安装包旁留下 `_MEI…` 残留。
+
+**报 `ProxyError` / `Unable to connect to proxy`**
+
+程序走的是**系统代理**（不是你设的环境变量）。这条错误通常是代理软件没启动，而系统代理设置还开着。
+两种处理：
+
+```powershell
+# 1) 启动你的代理软件，然后重试
+# 2) 本次运行绕过代理直连（不改任何系统/环境设置）
+python main.py --no-proxy upload -s ... -f ... -n ...
+```
+
+`--no-proxy` 只影响这一次运行，不会改注册表或环境变量。
 
 **要重新授权吗**
 

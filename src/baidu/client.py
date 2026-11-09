@@ -34,7 +34,9 @@ class BaiduClient:
     def __init__(self, client_id: str, client_secret: str,
                  token_file: Optional[str] = None):
         self.oauth = BaiduOAuth(client_id, client_secret, token_file)
-        self.session = requests.Session()
+        from src.net import new_session
+
+        self.session = new_session()
         self.session.headers.update({
             'User-Agent': 'pan.baidu.com',
             'Accept-Encoding': 'identity',

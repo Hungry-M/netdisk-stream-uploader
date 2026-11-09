@@ -785,3 +785,7 @@ msgstr "volume {0}"
 msgid "查找某个文件在哪个分卷里（查本地记录，不联网）。"
 msgstr "Find which volume holds a file (local records only, no network)."
 
+#: src\net.py:52
+msgid "无法通过系统代理连接百度。请确认代理软件已启动；或本次运行加 --no-proxy 直连。"
+msgstr "Cannot reach Baidu through the system proxy. Make sure your proxy client is running, or add --no-proxy to bypass it for this run."
+
