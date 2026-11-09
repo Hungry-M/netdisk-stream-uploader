@@ -7,6 +7,23 @@ from src.database.task_db import TaskDB
 from src.storage.local import LocalDirProvider
 
 
+@pytest.fixture(scope="session", autouse=True)
+def fixed_test_language():
+    """
+    固定测试语言为中文。
+
+    很多用例断言的是中文文案（"已中断"、"设置"…）。默认的 auto 会跟随系统
+    语言，CI 上是 en-US，本地是 zh-CN —— 同一份代码在两边结果不同。
+    这里统一成 zh，需要切语言的用例（tests/test_i18n.py）自己调 set_language。
+    """
+    from src.i18n import current_language, set_language
+
+    previous = current_language()
+    set_language("zh")
+    yield
+    set_language(previous)
+
+
 @pytest.fixture(scope="session")
 def qapp():
     """Qt 应用实例（offscreen）；没装 PySide6 时跳过相关用例。"""
