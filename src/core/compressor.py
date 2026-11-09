@@ -258,13 +258,19 @@ def oversized_entries(entries: List[Entry], max_bytes: int) -> List[Entry]:
 
 
 def pack_volumes(entries: List[Entry], max_bytes: int,
-                 pack_by: str = PACK_BY_SIZE) -> List[List[Entry]]:
+                 pack_by: str = PACK_BY_SIZE,
+                 group_of: Optional[Callable[[Entry], str]] = None,
+                 ) -> List[List[Entry]]:
     """
     按文件顺序装箱：累加到放不下就另起一卷。
 
-    pack_by='folder' 时按顶层文件夹分组，先尽量整个文件夹放一卷，
+    pack_by='folder' 时按文件夹分组，先尽量整个文件夹放一卷，
     放不下再在文件夹内部按大小切分——注意**不改变卷大小上限**，
     只是让"解压某一卷能拿到一个完整文件夹"的概率更高。
+
+    group_of 决定"顶层文件夹"怎么算。arcname 通常带源目录前缀
+    （`data/photos/a.jpg`），所以调用方要传入"跳过源目录"的取法，
+    否则所有文件都会被算成同一个组（`data`），分组等于没做。
 
     保持原始顺序（不重排），这样同样的输入总得到同样的分卷划分。
     """
@@ -281,18 +287,24 @@ def pack_volumes(entries: List[Entry], max_bytes: int,
     if pack_by == PACK_BY_SIZE:
         return _pack_by_size(entries, effective)
 
+    key = group_of or _default_group_key
     buckets: List[List[Entry]] = []
-    for _folder, group in _group_by_top_folder(entries):
+    for _folder, group in _group_entries(entries, key):
         buckets.extend(_pack_by_size(group, effective))
     return buckets
 
 
-def _group_by_top_folder(entries: List[Entry]):
-    """按 arcname 的第一段分组，保持首次出现顺序。"""
+def _default_group_key(entry: Entry) -> str:
+    """默认取 arcname 的第一段。"""
+    return entry.arcname.split('/', 1)[0] if '/' in entry.arcname else ''
+
+
+def _group_entries(entries: List[Entry], key):
+    """按 key 分组，保持首次出现顺序。"""
     order: List[str] = []
     groups = {}
     for entry in entries:
-        folder = entry.arcname.split('/', 1)[0] if '/' in entry.arcname else ''
+        folder = key(entry)
         if folder not in groups:
             groups[folder] = []
             order.append(folder)
@@ -377,6 +389,22 @@ def _zip_stream(entries, password: Optional[str], task_id: Optional[str]):
     return stream_zip(entries)
 
 
+def _group_key_without_source(entry: Entry, source_dir: str) -> str:
+    """
+    取"源目录之下"的第一段作为分组键。
+
+    arcname 是相对 source_dir.parent 的路径（`data/photos/a.jpg`），
+    所以要先去掉源目录那一段。文件直接放在源目录下时归入空组，
+    让它们互相之间按大小装箱。
+    """
+    try:
+        relative = entry.path.relative_to(Path(source_dir).resolve())
+        parts = relative.parts
+    except (ValueError, OSError):
+        parts = entry.arcname.split('/')[1:]
+    return parts[0] if len(parts) > 1 else ''
+
+
 def _self_contained_volumes(
     source_dir: str,
     file_list: List[str],
@@ -397,7 +425,12 @@ def _self_contained_volumes(
     if password is not None and not task_id:
         raise ValueError("加密归档必须提供 task_id（盐由它派生）")
 
-    buckets = pack_volumes(entries, volume_size_bytes, pack_by=pack_by)
+    buckets = pack_volumes(
+        entries, volume_size_bytes, pack_by=pack_by,
+        # arcname 带源目录前缀（data/photos/x.jpg），分组要跳过它，
+        # 否则所有文件都属于同一个组，--pack-by folder 等于没做
+        group_of=lambda e: _group_key_without_source(e, source_dir),
+    )
     temp_dir = resource_manager.decide_volume_temp_dir()
     os.makedirs(temp_dir, exist_ok=True)
     logger.info(

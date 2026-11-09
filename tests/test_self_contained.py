@@ -51,13 +51,15 @@ def make_source(root: Path, count: int = 3, size: int = MB) -> list:
     return names
 
 
-def collect(src: Path, names, tmp_path: Path, layout, volume_size: int) -> list:
+def collect(src: Path, names, tmp_path: Path, layout, volume_size: int,
+            pack_by: str = "size") -> list:
     rm = ResourceManager(ResourceSettings(preferred_temp_dirs=[str(tmp_path / "tmp")]))
     volumes = []
     for vol in compress_and_split(
         str(src), names, volume_size, rm,
         fixed_modified_at=FIXED, layout=layout,
         manifest={"format": 2, "tool": "test"},
+        pack_by=pack_by,
     ):
         volumes.append(vol.read())
         vol.close()
@@ -203,3 +205,35 @@ def test_oversized_entries_reports_before_writing(tmp_path):
     entries = [entry("ok", 5), entry("big", 20)]
     found = oversized_entries(entries, 10)
     assert [e.arcname for e in found] == ["big"]
+
+
+def test_pack_by_folder_survives_source_prefix(tmp_path):
+    """真实调用下 arcname 带源目录名，分组不能退化成"所有人都是一组"。
+
+    回归用例：--pack-by folder 曾经因为按第一段（源目录名）分组而完全失效，
+    表现为 docs 的文件被塞进 photos 的最后一卷。
+    """
+    src = tmp_path / "data"
+    (src / "photos").mkdir(parents=True)
+    (src / "docs").mkdir(parents=True)
+    for i in range(3):
+        (src / "photos" / f"p{i}.jpg").write_bytes(os.urandom(MB))
+    (src / "docs" / "manual.pdf").write_bytes(os.urandom(MB))
+    (src / "docs" / "notes.txt").write_bytes(os.urandom(200 * 1024))
+
+    volumes = collect(src, ["photos", "docs"], tmp_path,
+                      LAYOUT_SELF_CONTAINED, 3 * MB, pack_by="folder")
+
+    folders_per_volume = []
+    for data in volumes:
+        path = tmp_path / "v.zip"
+        path.write_bytes(data)
+        with zipfile.ZipFile(path) as zf:
+            names = [n for n in zf.namelist() if n != "__streampack__.json"]
+            folders_per_volume.append({n.split("/")[1] for n in names})
+
+    for folders in folders_per_volume:
+        assert len(folders) == 1, f"一卷里混了多个顶层文件夹: {folders}"
+
+    docs_volumes = [i for i, f in enumerate(folders_per_volume) if f == {"docs"}]
+    assert len(docs_volumes) == 1, "docs 的两个文件应在同一卷"
