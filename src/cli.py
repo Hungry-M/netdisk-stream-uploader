@@ -19,6 +19,7 @@ from src.hardware.resource_manager import ResourceManager
 from src.core.compressor import (
     compress_and_split, entries_payload, fingerprint_of, diff_entries,
     password_tag, VolumeInfo, VolumeMismatchError,
+    LAYOUTS, LAYOUT_CONTINUOUS, FileTooLargeForVolume,
 )
 from src.core.uploader import VolumeUploader, UploadResult
 from src.storage import available_providers, create_provider
@@ -53,9 +54,10 @@ def _make_provider(name: Optional[str] = None):
 
 
 def make_task_id(source_dir: str, name: str, remote: str, volume_size: int,
-                 file_list: List[str]) -> str:
+                 file_list: List[str], layout: str = LAYOUT_CONTINUOUS) -> str:
     sorted_files = sorted(f.strip() for f in file_list)
-    raw = f"{source_dir}|{name}|{remote}|{volume_size}|{','.join(sorted_files)}"
+    raw = (f"{source_dir}|{name}|{remote}|{volume_size}|"
+           f"{','.join(sorted_files)}|{layout}")
     return hashlib.sha1(raw.encode('utf-8')).hexdigest()[:16]
 
 
@@ -204,7 +206,8 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
                 backpressure: Optional[int] = None,
                 verify: str = 'full',
                 password: Optional[str] = None,
-                provider_name: Optional[str] = None) -> None:
+                provider_name: Optional[str] = None,
+                layout: Optional[str] = None) -> None:
     settings = build_settings()
     rm = ResourceManager(settings)
 
@@ -246,6 +249,8 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
         if int(task.get('format_version') or 1) >= 2:
             manifest = _build_manifest(task_id, task)
 
+        effective_layout = layout or task.get('layout') or LAYOUT_CONTINUOUS
+
         vol_gen = compress_and_split(
             source_dir=task['source_dir'],
             file_list=task['file_list'],
@@ -256,6 +261,7 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
             manifest=manifest,
             password=pwd,
             task_id=task_id,
+            layout=effective_layout,
         )
         if backpressure == 0:
             bp = uploader.worker_count * 2
@@ -288,6 +294,12 @@ def _run_upload(task_id: str, task: dict, db: TaskDB,
                                   error_message=_f("所有分卷失败: {0}", failed))
             click.echo(_f("[ERR] 任务 {0} 全部失败", task_id), err=True)
 
+    except FileTooLargeForVolume as e:
+        db.update_task_status(task_id, TaskStatus.FAILED, error_message=str(e))
+        click.echo(_f("[ERR] {0}", e), err=True)
+        click.echo(_("      self-contained 模式要求每个文件完整落在一卷内。可选："), err=True)
+        click.echo(_("      1) 调大 --volume-size   2) 改用 --layout continuous"), err=True)
+        raise SystemExit(1)
     except VolumeMismatchError as e:
         db.update_task_status(task_id, TaskStatus.FAILED, error_message=str(e))
         click.echo(_f("[ERR] 续传校验失败：{0}", e), err=True)
@@ -346,8 +358,12 @@ def cli():
               help=_('用 AES-256 加密归档。建议改用环境变量 STREAMPACK_PASSWORD，避免留在命令历史里'))
 @click.option('--provider', type=click.Choice(available_providers()), default=None,
               help=_('存储后端；默认取配置项 provider（baidu）。local 用于离线预演'))
+@click.option('--layout', type=click.Choice(list(LAYOUTS)), default=LAYOUT_CONTINUOUS,
+              show_default=True,
+              help=_('分卷布局：continuous=一个 ZIP 切成多段（需拼接）；'
+                     'self-contained=每卷一个独立 ZIP（可单独解压，但单文件不能超过分卷）'))
 def upload(source, files, remote, name, volume_size, resume, ext, backpressure,
-           verify, password, provider):
+           verify, password, provider, layout):
     """创建并执行上传任务。若任务已存在，将续传/重跑。"""
     file_list = [f.strip() for f in files.split(',')]
     source_dir = Path(source).resolve()
@@ -360,7 +376,7 @@ def upload(source, files, remote, name, volume_size, resume, ext, backpressure,
     if not remote:
         remote = settings.remote_root
 
-    task_id = make_task_id(str(source_dir), name, remote, volume_size, file_list)
+    task_id = make_task_id(str(source_dir), name, remote, volume_size, file_list, layout)
     click.echo(_f("任务 ID: {0}", task_id))
 
     if backpressure is None:
@@ -391,10 +407,12 @@ def upload(source, files, remote, name, volume_size, resume, ext, backpressure,
                    entries_json=json.dumps(entries),
                    format_version=2,
                    encrypted=bool(pwd),
-                   password_tag=password_tag(task_id, pwd) if pwd else None)
+                   password_tag=password_tag(task_id, pwd) if pwd else None,
+                   layout=layout)
     task = db.get_task(task_id)
     _run_upload(task_id, task, db, backpressure=bp_limit,
-                verify=verify, password=password, provider_name=provider)
+                verify=verify, password=password, provider_name=provider,
+                layout=layout)
 
 
 @cli.command()

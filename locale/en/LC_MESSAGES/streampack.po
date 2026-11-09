@@ -657,3 +657,15 @@ msgstr "App name / subfolder"
 msgid "网盘目标目录，默认由配置项 app_name 推导为 /apps/<应用名>"
 msgstr "Remote folder, derived from the app_name setting as /apps/<app name>"
 
+#: src\cli.py:301
+msgid "      1) 调大 --volume-size   2) 改用 --layout continuous"
+msgstr "      1) increase --volume-size   2) use --layout continuous"
+
+#: src\cli.py:300
+msgid "      self-contained 模式要求每个文件完整落在一卷内。可选："
+msgstr "      self-contained mode requires every file to fit inside one volume. Options:"
+
+#: src\cli.py:363
+msgid "分卷布局：continuous=一个 ZIP 切成多段（需拼接）；self-contained=每卷一个独立 ZIP（可单独解压，但单文件不能超过分卷）"
+msgstr "Volume layout: continuous = one ZIP cut into segments (must be joined); self-contained = one independent ZIP per volume (each opens on its own, but a single file cannot exceed the volume size)"
+

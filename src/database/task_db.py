@@ -91,6 +91,7 @@ class TaskDB:
                 ('format_version', 'INTEGER'),  # 1 = 无 manifest，2 = 有
                 ('encrypted', 'INTEGER'),       # 1 = 归档用 AES 加密
                 ('password_tag', 'TEXT'),       # 密码校验值，不含密码本身
+                ('layout', "TEXT DEFAULT 'continuous'"),  # 分卷布局
             ],
             'volumes': [
                 ('size_bytes', 'INTEGER'),      # 该卷字节数
@@ -113,7 +114,8 @@ class TaskDB:
                     entries_json: Optional[str] = None,
                     format_version: int = 1,
                     encrypted: bool = False,
-                    password_tag: Optional[str] = None) -> None:
+                    password_tag: Optional[str] = None,
+                    layout: str = "continuous") -> None:
         now = time.time()
         with self._write_lock:
             with self._connect() as conn:
@@ -123,14 +125,14 @@ class TaskDB:
                      volume_size_bytes, remote_suffix, status,
                      created_at, updated_at, fixed_modified_at,
                      fingerprint, entries_json, format_version,
-                     encrypted, password_tag)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     encrypted, password_tag, layout)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     task_id, source_dir, json.dumps(file_list),
                     remote_dir, base_name, volume_size_bytes, remote_suffix,
                     TaskStatus.PENDING.value, now, now, now,
                     fingerprint, entries_json, format_version,
-                    1 if encrypted else 0, password_tag
+                    1 if encrypted else 0, password_tag, layout
                 ))
 
     def update_task_fingerprint(self, task_id: str, fingerprint: str,

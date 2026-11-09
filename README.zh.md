@@ -391,7 +391,7 @@ python main.py config set remote_subdir backups
 
 **怎么把分卷还原成一个 zip**
 
-分卷是整条 ZIP 字节流的切片，按编号顺序拼接即可：
+默认布局 `--layout continuous` 下，分卷是整条 ZIP 字节流的切片，按编号顺序拼接即可：
 
 ```cmd
 copy /b arch.part0001.zip+arch.part0002.zip+arch.part0003.zip arch.zip
@@ -402,6 +402,24 @@ cat arch.part*.zip > arch.zip
 ```
 
 还原后直接解压即可。第一个条目是 `__streampack__.json`，记录了任务参数和完整文件清单，可以据此确认这批分卷是从哪来的。
+
+**我想让每一卷都能单独打开**
+
+用 `--layout self-contained`：
+
+```bash
+python main.py upload -s D:\data -f . -n backup --volume-size 1G --layout self-contained
+```
+
+每卷是一个**独立 ZIP**，随便挑一卷用 7-Zip 都能直接解压，不需要拼接。代价有三个：
+
+| 限制 | 说明 |
+|:---|:---|
+| 单文件不能超过分卷 | 一个 12 GB 的视频装不进 1 GB 卷，会直接报错；调大 `--volume-size` 或改回默认布局 |
+| 装箱按未压缩大小 | 留 0.5% 余量，所以两个 1 GB 文件放不进 2 GB 卷 |
+| 续传粒度变整卷 | 某一卷失败要重传整卷（通常是几个文件的组合） |
+
+两种布局的任务 ID 不同，不会互相干扰；`resume` 会按任务创建时的布局继续。
 
 **加密归档怎么打开**
 

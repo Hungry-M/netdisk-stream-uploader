@@ -207,6 +207,66 @@ def password_tag(task_id: str, password: str) -> str:
     ).hex()
 
 
+# ---------- 分卷布局 ----------
+
+LAYOUT_CONTINUOUS = 'continuous'          # 一个 ZIP 切成 N 段（默认）
+LAYOUT_SELF_CONTAINED = 'self-contained'  # 每卷一个独立 ZIP
+LAYOUTS = (LAYOUT_CONTINUOUS, LAYOUT_SELF_CONTAINED)
+
+# 装箱时留的余量：deflate 最坏会略微膨胀（约 0.03%），
+# 按未压缩大小装到 99.5% 可以保证压缩后仍不超过 volume_size。
+_PACK_SAFETY = 0.995
+
+
+class FileTooLargeForVolume(Exception):
+    """
+    self-contained 模式下，单个文件装不进一卷。
+
+    这不是 bug：独立可解压意味着一个文件必须完整落在某一卷里，
+    无法像连续流那样把它拦腰切断。
+    """
+
+    def __init__(self, arcname: str, size: int, limit: int):
+        super().__init__(
+            f"{arcname}（{size / 1024 / 1024:.1f} MB）超过分卷大小"
+            f"（{limit / 1024 / 1024:.1f} MB）"
+        )
+        self.arcname = arcname
+        self.size = size
+        self.limit = limit
+
+
+def pack_volumes(entries: List[Entry], max_bytes: int) -> List[List[Entry]]:
+    """
+    按文件顺序装箱：累加到放不下就另起一卷。
+
+    保持原始顺序（不重排），这样同样的输入总得到同样的分卷划分。
+    """
+    if max_bytes <= 0:
+        raise ValueError("分卷大小必须大于 0")
+
+    effective = max(1, int(max_bytes * _PACK_SAFETY))
+    buckets: List[List[Entry]] = []
+    current: List[Entry] = []
+    current_bytes = 0
+
+    for entry in entries:
+        if entry.size > effective:
+            raise FileTooLargeForVolume(entry.arcname, entry.size, max_bytes)
+
+        if current and current_bytes + entry.size > effective:
+            buckets.append(current)
+            current = []
+            current_bytes = 0
+
+        current.append(entry)
+        current_bytes += entry.size
+
+    if current:
+        buckets.append(current)
+    return buckets
+
+
 def compress_and_split(
     source_dir: str,
     file_list: List[str],
@@ -217,6 +277,148 @@ def compress_and_split(
     manifest: Optional[dict] = None,
     password: Optional[str] = None,
     task_id: Optional[str] = None,
+    layout: str = LAYOUT_CONTINUOUS,
+) -> Generator[BinaryIO, None, None]:
+    """
+    流式压缩并按 layout 切分，逐卷 yield（调用方负责 close + remove）。
+
+    - continuous：一个 ZIP 字节流切成 N 段，任意一卷都不是完整归档，必须拼接；
+    - self-contained：每卷一个独立 ZIP，可单独解压，但单文件不能大于一卷。
+    """
+    if layout == LAYOUT_SELF_CONTAINED:
+        gen = _self_contained_volumes(
+            source_dir, file_list, volume_size_bytes, resource_manager,
+            fixed_modified_at, on_volume_complete, manifest, password, task_id,
+        )
+    elif layout == LAYOUT_CONTINUOUS:
+        gen = _continuous_volumes(
+            source_dir, file_list, volume_size_bytes, resource_manager,
+            fixed_modified_at, on_volume_complete, manifest, password, task_id,
+        )
+    else:
+        raise ValueError(f"未知的分卷布局: {layout!r}（可用 {', '.join(LAYOUTS)}）")
+
+    yield from gen
+
+
+def _file_chunks(path: Path):
+    with open(path, 'rb') as fh:
+        while True:
+            chunk = fh.read(64 * 1024)
+            if not chunk:
+                break
+            yield chunk
+
+
+def _zip_stream(entries, password: Optional[str], task_id: Optional[str]):
+    if password is not None:
+        if not task_id:
+            raise ValueError("加密归档必须提供 task_id（盐由它派生）")
+        return stream_zip(
+            entries,
+            password=password,
+            get_crypto_random=_deterministic_crypto_random(task_id),
+        )
+    return stream_zip(entries)
+
+
+def _self_contained_volumes(
+    source_dir: str,
+    file_list: List[str],
+    volume_size_bytes: int,
+    resource_manager: ResourceManager,
+    fixed_modified_at: Optional[datetime],
+    on_volume_complete: Optional[Callable[[VolumeInfo], None]],
+    manifest: Optional[dict],
+    password: Optional[str],
+    task_id: Optional[str],
+) -> Generator[BinaryIO, None, None]:
+    entries = list(iter_entries(source_dir, file_list))
+    if not entries:
+        logger.warning("文件列表为空，不生成任何分卷")
+        return
+
+    if password is not None and not task_id:
+        raise ValueError("加密归档必须提供 task_id（盐由它派生）")
+
+    buckets = pack_volumes(entries, volume_size_bytes)
+    temp_dir = resource_manager.decide_volume_temp_dir()
+    os.makedirs(temp_dir, exist_ok=True)
+    logger.info(
+        f"[ZIP] self-contained：{len(entries)} 个文件 -> {len(buckets)} 卷，"
+        f"每卷上限 {volume_size_bytes / 1024 / 1024:.0f} MB"
+    )
+
+    modified_at = fixed_modified_at or datetime.now()
+    stream_offset = 0
+
+    for index, bucket in enumerate(buckets, 1):
+        zip_entries = []
+        if manifest is not None:
+            volume_manifest = dict(manifest)
+            volume_manifest['layout'] = LAYOUT_SELF_CONTAINED
+            volume_manifest['volume'] = {
+                'index': index,
+                'total': len(buckets),
+                'files': [[e.arcname, e.size, e.mtime_ns] for e in bucket],
+            }
+            zip_entries.append(_manifest_entry(volume_manifest, modified_at))
+
+        for entry in bucket:
+            zip_entries.append(
+                (entry.arcname, modified_at, 0o644, ZIP_64, _file_chunks(entry.path))
+            )
+
+        temp_file = tempfile.NamedTemporaryFile(
+            dir=temp_dir,
+            prefix=resource_manager.settings.temp_file_prefix,
+            suffix='.zip',
+            delete=False,
+        )
+        hasher = hashlib.md5()
+        size = 0
+        try:
+            for chunk in _zip_stream(zip_entries, password, task_id):
+                temp_file.write(chunk)
+                hasher.update(chunk)
+                size += len(chunk)
+            temp_file.flush()
+            temp_file.seek(0)
+        except Exception:
+            temp_file.close()
+            try:
+                os.unlink(temp_file.name)
+            except OSError:
+                pass
+            raise
+
+        info = VolumeInfo(
+            part_number=index,
+            temp_path=temp_file.name,
+            md5=hasher.hexdigest(),
+            size=size,
+            start_offset=stream_offset,
+        )
+        stream_offset += size
+        logger.info(
+            f"[ZIP]  分卷 {index}/{len(buckets)}（{len(bucket)} 个文件）, "
+            f"大小: {size / 1024 / 1024:.2f} MB, md5: {info.md5[:8]}…"
+        )
+        if on_volume_complete is not None:
+            on_volume_complete(info)
+        yield temp_file
+
+
+def _continuous_volumes(
+    source_dir: str,
+    file_list: List[str],
+    volume_size_bytes: int,
+    resource_manager: ResourceManager,
+    fixed_modified_at: Optional[datetime],
+    on_volume_complete: Optional[Callable[[VolumeInfo], None]],
+    manifest: Optional[dict],
+    password: Optional[str],
+    task_id: Optional[str],
 ) -> Generator[BinaryIO, None, None]:
     """
     流式压缩，切分为不超过 volume_size_bytes 的分卷。

@@ -397,7 +397,7 @@ Yes. Ctrl+C stops scheduling further volumes and removes the ones not yet upload
 
 **How do I put the volumes back together**
 
-Each volume is a slice of one continuous ZIP byte stream — concatenate them in order:
+With the default `--layout continuous`, each volume is a slice of one continuous ZIP byte stream — concatenate them in order:
 
 ```bash
 cat arch.part*.zip > arch.zip
@@ -408,6 +408,24 @@ copy /b arch.part0001.zip+arch.part0002.zip+arch.part0003.zip arch.zip
 ```
 
 The result opens directly. Its first entry is `__streampack__.json`, recording the task parameters and the full file list, so you can tell where the volumes came from.
+
+**I want every volume to open on its own**
+
+Use `--layout self-contained`:
+
+```bash
+python main.py upload -s D:\data -f . -n backup --volume-size 1G --layout self-contained
+```
+
+Each volume is an **independent ZIP** — pick any one, open it with 7-Zip, done. No concatenation. Three costs:
+
+| Constraint | Detail |
+|:---|:---|
+| A file cannot exceed the volume | A 12 GB video will not fit a 1 GB volume; it fails fast — raise `--volume-size` or go back to the default layout |
+| Packing is by uncompressed size | with 0.5% headroom, so two 1 GB files do not fit a 2 GB volume |
+| Resume granularity is the whole volume | a failed volume is re-uploaded entirely (usually a group of files) |
+
+The two layouts produce different task IDs, so they never collide; `resume` follows the layout recorded when the task was created.
 
 **How do I open an encrypted archive**
 
