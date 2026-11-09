@@ -120,21 +120,57 @@ if ($WaitPid -gt 0) {
 
 # ---------- 证书 ----------
 
+function Test-IsCa {
+    param($Cert)
+    $ext = $Cert.Extensions | Where-Object { $_.Oid.Value -eq "2.5.29.19" }
+    if (-not $ext) { return $false }
+
+    # RawData 是 BasicConstraints 的 DER：SEQUENCE { BOOLEAN cA }
+    #   30 <len> 01 01 <ff|00>
+    # 不能直接看 RawData[0]（那是 SEQUENCE 的 tag 0x30）。
+    $raw = $ext.RawData
+    if ($raw.Length -lt 5 -or $raw[0] -ne 0x30) { return $false }
+
+    $pos = 2
+    if ($raw[1] -band 0x80) { $pos = 2 + ($raw[1] -band 0x7F) }   # 长格式长度
+    if ($pos + 2 -ge $raw.Length) { return $false }
+    if ($raw[$pos] -ne 0x01 -or $raw[$pos + 1] -ne 0x01) { return $false }
+    return ($raw[$pos + 2] -ne 0x00)
+}
+
 $root = Get-ChildItem Cert:\CurrentUser\My -ErrorAction SilentlyContinue |
     Where-Object { $_.Subject -eq $RootSubject } |
     Sort-Object NotAfter -Descending | Select-Object -First 1
 
+# 早期版本用 -Type CodeSigningCert 建根，没有 CA 标记，签出来的子证书链
+# 验证不过（Set-AuthenticodeSignature 报 UnknownError）。发现这种根就清掉重建。
+if ($root -and -not (Test-IsCa $root)) {
+    Write-Log "现有根证书缺少 CA 标记，删除后重建（$($root.Thumbprint)）"
+    foreach ($store in @("My", "Root", "TrustedPublisher")) {
+        Get-ChildItem "Cert:\CurrentUser\$store" -ErrorAction SilentlyContinue |
+            Where-Object { $_.Subject -eq $ChildSubject -or $_.Subject -eq $RootSubject } |
+            ForEach-Object {
+                certutil -user -delstore $store $_.Thumbprint | Out-Null
+            }
+    }
+    $root = $null
+}
+
 if (-not $root) {
-    Write-Log "创建根证书：$RootSubject"
+    Write-Log "创建根 CA：$RootSubject"
     $root = New-SelfSignedCertificate `
-        -Type CodeSigningCert `
+        -Type Custom `
         -Subject $RootSubject `
-        -CertStoreLocation Cert:\CurrentUser\My `
+        -KeyUsage CertSign, CRLSign `
+        -KeyUsageProperty Sign `
         -KeyExportPolicy Exportable `
-        -NotAfter (Get-Date).AddYears(5) `
-        -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3")
+        -KeyLength 4096 `
+        -HashAlgorithm SHA256 `
+        -CertStoreLocation Cert:\CurrentUser\My `
+        -NotAfter (Get-Date).AddYears(10) `
+        -TextExtension @("2.5.29.19={text}ca=1&pathlength=1")
 } else {
-    Write-Log "复用根证书：$($root.Thumbprint)"
+    Write-Log "复用根 CA：$($root.Thumbprint)"
 }
 
 $child = Get-ChildItem Cert:\CurrentUser\My -ErrorAction SilentlyContinue |
@@ -165,8 +201,18 @@ function Ensure-Trusted {
 
     $cer = Join-Path $env:TEMP ("streampack-" + $Cert.Thumbprint + ".cer")
     Export-Certificate -Cert $Cert -FilePath $cer | Out-Null
-    Import-Certificate -FilePath $cer -CertStoreLocation "Cert:\CurrentUser\$Store" | Out-Null
+
+    # 不能用 Import-Certificate：导入 CA 根到 Root 会弹"安全警告"确认框，
+    # 而本脚本通常在隐藏窗口里跑，没人点就永远卡住（实测卡死 5 分钟）。
+    # certutil 直接调证书 API，不弹 UI。
+    $out = certutil -user -addstore -f $Store $cer 2>&1
     Remove-Item $cer -Force -ErrorAction SilentlyContinue
+
+    $exists = Get-ChildItem "Cert:\CurrentUser\$Store" -ErrorAction SilentlyContinue |
+        Where-Object { $_.Thumbprint -eq $Cert.Thumbprint }
+    if (-not $exists) {
+        throw "导入 $Store 失败: $($out -join ' ')"
+    }
     Write-Log "  已信任到 $Store"
 }
 
@@ -174,15 +220,29 @@ Ensure-Trusted -Cert $root -Store "Root"
 Ensure-Trusted -Cert $child -Store "TrustedPublisher"
 
 # ---------- 签名 ----------
+#
+# 无论成功失败都要把程序重新打开：用户点的是"信任并签名"，
+# 结果程序再也不出现会被当成崩溃。
 
-Write-Log "签名中…"
-Set-AuthenticodeSignature -FilePath $AppPath -Certificate $child -HashAlgorithm SHA256 | Out-Null
+$signatureOk = $false
+try {
+    Write-Log "签名中…"
+    Set-AuthenticodeSignature -FilePath $AppPath -Certificate $child `
+        -HashAlgorithm SHA256 | Out-Null
 
-$check = Get-AuthenticodeSignature $AppPath
-Write-Log "签名状态：$($check.Status)"
-if ($check.Status -ne "Valid") {
-    Write-Log "签名无效，未重新启动程序。"
-    exit 1
+    $check = Get-AuthenticodeSignature $AppPath
+    Write-Log "签名状态：$($check.Status)"
+    if ($check.Status -eq "Valid") {
+        $signatureOk = $true
+    } elseif (-not (Test-IsCa $root)) {
+        Write-Log "提示：根证书不是 CA，子证书链无法验证"
+    }
+} catch {
+    Write-Log "签名异常：$($_.Exception.Message)"
+}
+
+if (-not $signatureOk) {
+    Write-Log "签名未成功，程序仍会重新打开（签名可稍后重试）"
 }
 
 if ($Relaunch) {
@@ -190,5 +250,8 @@ if ($Relaunch) {
     Start-Process -FilePath $AppPath
 }
 
-Write-Log "完成。仅本机当前用户生效，其他电脑不信任。"
-exit 0
+if ($signatureOk) {
+    Write-Log "完成。仅本机当前用户生效，其他电脑不信任。"
+    exit 0
+}
+exit 1

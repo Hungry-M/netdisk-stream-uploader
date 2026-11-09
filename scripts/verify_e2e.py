@@ -292,12 +292,18 @@ def verify_installer(sb: Sandbox):
     setup = setups[-1]
 
     result_file = sb.work / "install-result.json"
-    subprocess.run(
+    completed = subprocess.run(
         [str(setup), "--silent", "--dir", str(sb.install),
          "--no-shortcut", "--result-file", str(result_file)],
         cwd=ROOT, env=sb.env, timeout=300,
     )
-    assert result_file.exists(), "安装器没有写结果文件（检查 TEMP 是否可写）"
+    assert result_file.exists(), (
+        "安装器没有写结果文件。\n"
+        f"  退出码: {completed.returncode}\n"
+        f"  TEMP  : {sb.temp}（存在: {sb.temp.exists()}）\n"
+        "  常见原因：onefile 无法解包到 TEMP。把 --work 放在仓库内，"
+        "或改用资源管理器双击安装。"
+    )
     payload = json.loads(result_file.read_text(encoding="utf-8"))
     assert payload.get("ok") is True, payload
 
@@ -305,21 +311,27 @@ def verify_installer(sb: Sandbox):
     assert (sb.install / "streampack-gui.exe").exists()
     assert (sb.install / "uninstall.ps1").exists()
 
+    # 注册表项可能是**用户真实安装**留下的（指向 %LOCALAPPDATA%），
+    # 不能要求它必须等于沙箱目录。这里只做记录，不当作失败。
     import winreg
     key = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\StreamPack"
+    existing = None
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as k:
-            location = winreg.QueryValueEx(k, "InstallLocation")[0]
-        assert Path(location) == sb.install, location
-        has_key = True
+            existing = winreg.QueryValueEx(k, "InstallLocation")[0]
     except FileNotFoundError:
-        has_key = False
+        existing = None
     except PermissionError:
-        has_key = False
+        existing = None
 
-    sb.registry_key = has_key
-    warnings = payload.get("warnings") or []
-    note = "已写 HKCU 卸载项" if has_key else "HKCU 被沙箱拒绝（真实环境需确认）"
+    sb.registry_key = bool(existing) and Path(existing) == sb.install
+
+    if existing and Path(existing) == sb.install:
+        note = "已写 HKCU 卸载项"
+    elif existing:
+        note = f"注册表仍指向已有安装（{existing}），未覆盖"
+    else:
+        note = "HKCU 被沙箱拒绝（真实环境需确认）"
     return f"{setup.name} -> copied={payload.get('copied')}，{note}"
 
 
