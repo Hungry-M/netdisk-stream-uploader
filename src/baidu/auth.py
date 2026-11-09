@@ -26,10 +26,9 @@ class BaiduOAuth:
         self.client_id = client_id
         self.client_secret = client_secret
         if token_file is None:
-            home = Path.home()
-            token_dir = home / ".netdisk_uploader"
-            token_dir.mkdir(exist_ok=True)
-            self.token_file = token_dir / "token.json"
+            from src.paths import data_file
+
+            self.token_file = data_file("token.json")
         else:
             self.token_file = Path(token_file)
             self.token_file.parent.mkdir(exist_ok=True)

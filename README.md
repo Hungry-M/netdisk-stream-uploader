@@ -403,6 +403,26 @@ python main.py config set remote_subdir backups
 
 Authorization codes are single-use and expire in about 10 minutes. Reopen the authorization URL and get a fresh one.
 
+**The installer says `Could not create temporary directory`**
+
+The installer is a onefile build: it unpacks itself into the temp directory first. This error means **the temp directory is not writable**, not that the package is corrupt. Check in order:
+
+1. Are you launching from a restricted context (sandbox, restricted token, some managed endpoints)? Try double-clicking from Explorer instead.
+2. Does `%TEMP%` exist and is it writable?
+
+   ```powershell
+   $env:TEMP; Test-Path $env:TEMP
+   ```
+
+3. Point the temp variables at a writable directory and retry (the package itself is unchanged):
+
+   ```powershell
+   $env:TEMP = "$env:LOCALAPPDATA\Temp"; $env:TMP = $env:TEMP
+   .\StreamPack-Setup-0.8.0.exe
+   ```
+
+Do **not** use `--runtime-tmpdir "."` to unpack next to the exe: that requires starting from a writable directory and leaves `_MEI…` leftovers beside the installer.
+
 **Do I need to re-authorize often**
 
 Normally no. The access token expires in about 30 days and is refreshed automatically with the refresh token; you are only asked to authorize again when the refresh itself fails.

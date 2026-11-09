@@ -1,8 +1,11 @@
 @echo off
-rem StreamPack 便携清理的双击入口。
-rem 不带参数时只预览；要真删，加 -Yes：
-rem     cleanup.cmd -Yes
+rem StreamPack portable cleanup (double-click entry).
+rem   cleanup.cmd               preview only
+rem   cleanup.cmd -Yes          delete data files
+rem   cleanup.cmd -Yes -KeepBackups -RemoveFolder
+rem
+rem ASCII only on purpose: cmd.exe reads .cmd in the OEM codepage and does not
+rem honour a UTF-8 BOM, so non-ASCII comments break the script.
 setlocal
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0cleanup.ps1" %*
-echo.
-pause
+if "%~1"=="" pause

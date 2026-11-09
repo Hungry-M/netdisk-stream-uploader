@@ -397,6 +397,26 @@ python main.py config set remote_subdir backups
 
 授权码一次性使用，且有效期约 10 分钟。过期就重新打开授权链接重新获取。
 
+**安装器提示 `Could not create temporary directory`**
+
+安装器是单文件（onefile），启动时要把自身解包到临时目录。这条错误意味着**临时目录不可写**，而不是包损坏。按顺序检查：
+
+1. 是否从受限环境启动（沙箱、受限令牌、某些企业管控终端）——换成从资源管理器双击；
+2. `%TEMP%` 是否存在、当前用户是否可写：
+
+   ```powershell
+   $env:TEMP; Test-Path $env:TEMP
+   ```
+
+3. 换个可写目录再试（把临时目录指过去，不改变安装包本身）：
+
+   ```powershell
+   $env:TEMP = "$env:LOCALAPPDATA\Temp"; $env:TMP = $env:TEMP
+   .\StreamPack-Setup-0.8.0.exe
+   ```
+
+不要用 `--runtime-tmpdir "."` 把解包目录搬到 exe 旁边：那样要求从可写目录启动，还会在安装包旁留下 `_MEI…` 残留。
+
 **要重新授权吗**
 
 一般不用。access_token 约 30 天过期，程序会自动用 refresh_token 换新；只有刷新也失败时才会提示重新授权。

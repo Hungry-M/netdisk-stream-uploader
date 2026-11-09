@@ -25,6 +25,15 @@ LANGUAGES = ["auto", "zh", "en"]
 THEMES = ["auto", "light", "dark"]
 
 
+def _data_dir() -> Path:
+    try:
+        from src.paths import data_dir
+
+        return data_dir()
+    except Exception:
+        return Path.home() / ".netdisk_uploader"
+
+
 class SettingsDialog(QDialog):
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -83,7 +92,7 @@ class SettingsDialog(QDialog):
         btn_open_cfg = QPushButton(_("打开配置文件"))
         btn_open_cfg.clicked.connect(lambda: self._open(config_path()))
         btn_open_data = QPushButton(_("打开数据目录"))
-        btn_open_data.clicked.connect(lambda: self._open(Path.home() / ".netdisk_uploader"))
+        btn_open_data.clicked.connect(lambda: self._open(_data_dir()))
         buttons_row.addWidget(btn_open_cfg)
         buttons_row.addWidget(btn_open_data)
         buttons_row.addStretch(1)

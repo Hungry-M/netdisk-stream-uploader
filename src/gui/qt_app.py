@@ -161,9 +161,7 @@ class MainWindow(QMainWindow):
         self.action_config.triggered.connect(lambda: self._open_path(config_path()))
 
         self.action_data = menu.addAction(_("打开数据目录"))
-        self.action_data.triggered.connect(
-            lambda: self._open_path(Path.home() / ".netdisk_uploader")
-        )
+        self.action_data.triggered.connect(lambda: self._open_path(_data_dir()))
 
         self.action_find = menu.addAction(_("查找文件…"))
         self.action_find.setShortcut("Ctrl+F")
@@ -190,7 +188,7 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self, _("关于"),
             _f("StreamPack {0}\n\n分卷流式压缩并上传网盘。\n"
-               "数据目录：{1}", __version__, Path.home() / ".netdisk_uploader"),
+               "数据目录：{1}", __version__, _data_dir()),
         )
 
     def open_settings(self) -> None:
@@ -431,6 +429,16 @@ class MainWindow(QMainWindow):
             return
         for line in text.splitlines():
             self.log.appendPlainText(line)
+
+
+def _data_dir() -> Path:
+    """数据目录：默认 ~/.netdisk_uploader，可用 STREAMPACK_HOME 覆盖。"""
+    try:
+        from src.paths import data_dir
+
+        return data_dir()
+    except Exception:
+        return Path.home() / ".netdisk_uploader"
 
 
 def _theme_preference() -> str:

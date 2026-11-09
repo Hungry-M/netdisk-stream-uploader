@@ -24,7 +24,14 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$dataDir = if ($DataDir) { $DataDir } else { Join-Path $env:USERPROFILE ".netdisk_uploader" }
+$dataDir = if ($DataDir) {
+    $DataDir
+} elseif ($env:STREAMPACK_HOME) {
+    # 自动化测试用 STREAMPACK_HOME 把数据目录关进沙箱
+    $env:STREAMPACK_HOME
+} else {
+    Join-Path $env:USERPROFILE ".netdisk_uploader"
+}
 $selfDir = $PSScriptRoot
 $installDir = if ($InstallDir) { $InstallDir } else { Split-Path -Parent $selfDir }
 

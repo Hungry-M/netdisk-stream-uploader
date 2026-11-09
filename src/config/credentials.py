@@ -27,10 +27,9 @@ class Credentials:
 
 
 def _credentials_path() -> Path:
-    home = Path.home()
-    cred_dir = home / ".netdisk_uploader"
-    cred_dir.mkdir(exist_ok=True)
-    return cred_dir / "credentials.json"
+    from src.paths import data_file
+
+    return data_file("credentials.json")
 
 
 def load_credentials(prompt_if_missing: bool = True) -> Credentials:

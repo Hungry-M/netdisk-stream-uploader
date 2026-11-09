@@ -32,9 +32,9 @@ def config_path() -> Path:
         p = Path(override)
         p.parent.mkdir(parents=True, exist_ok=True)
         return p
-    d = Path.home() / ".netdisk_uploader"
-    d.mkdir(exist_ok=True)
-    return d / "config.json"
+    from src.paths import data_file
+
+    return data_file("config.json")
 
 
 # ---------- 值解析 ----------

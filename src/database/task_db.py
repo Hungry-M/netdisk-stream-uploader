@@ -26,10 +26,9 @@ class TaskDB:
 
     def __init__(self, db_path: Optional[str] = None):
         if db_path is None:
-            home = Path.home()
-            db_dir = home / ".netdisk_uploader"
-            db_dir.mkdir(exist_ok=True)
-            db_path = db_dir / "tasks.db"
+            from src.paths import data_file
+
+            db_path = data_file("tasks.db")
         self.db_path = str(db_path)
         self._init_db()
 
