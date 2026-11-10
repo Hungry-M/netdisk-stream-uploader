@@ -74,7 +74,7 @@ python main.py upload \
   --volume-size 1073741824
 ```
 
-On the first run you will be prompted for your Baidu AppKey and SecretKey (from the [Baidu Netdisk Open Platform](https://pan.baidu.com/union)). They are stored in `~/.netdisk_uploader/credentials.json` and are not committed to version control.
+On the first run you will be prompted for your Baidu AppKey and SecretKey (from the [Baidu Netdisk Open Platform](https://pan.baidu.com/union)). They are stored locally in `~/.netdisk_uploader/credentials.json` and never leave your machine.
 
 You will then be asked to open an authorization URL in your browser and paste the resulting code back into the terminal. The token is stored in `~/.netdisk_uploader/token.json`.
 
@@ -566,7 +566,10 @@ Issues and pull requests are welcome.
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE).
+Apache License 2.0 — see [LICENSE](LICENSE). Bundled third-party components and their
+licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Security policy: [SECURITY.md](SECURITY.md). Change history: [CHANGELOG.md](CHANGELOG.md).
 
 ## Acknowledgements
 

@@ -33,3 +33,11 @@ test_data/
 .vscode/
 .idea/
 *.swp
+
+# 验收/调试沙箱
+_verify/
+_verify*/
+_bench*/
+_uninst_*/
+_tmp*/
+*.log

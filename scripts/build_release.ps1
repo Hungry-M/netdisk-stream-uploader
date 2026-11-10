@@ -56,6 +56,7 @@ $extras = @(
     "README.md",
     "README.zh.md",
     "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
     "scripts\cleanup.ps1",
     "scripts\cleanup.cmd",
     "scripts\uninstall.ps1",

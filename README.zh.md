@@ -74,7 +74,7 @@ python main.py upload \
   --volume-size 1073741824
 ```
 
-首次运行会要求输入百度 AppKey 与 SecretKey（从[百度网盘开放平台](https://pan.baidu.com/union)申请获取）。它们保存在 `~/.netdisk_uploader/credentials.json`，不会进入版本控制。
+首次运行会要求输入百度 AppKey 与 SecretKey（从[百度网盘开放平台](https://pan.baidu.com/union)申请获取）。它们只保存在本机 `~/.netdisk_uploader/credentials.json`，不会离开你的电脑。
 
 随后程序会要求你在浏览器打开授权链接，完成后将返回的授权码粘贴回终端。令牌保存在 `~/.netdisk_uploader/token.json`。
 
@@ -560,6 +560,11 @@ python main.py upload ... --layout self-contained --pack-by folder
 - 界面翻译：改 `locale/*/LC_MESSAGES/*.po` 后跑 `python scripts/build_mo.py`
 
 ## 许可证
+
+Apache License 2.0，见 [LICENSE](LICENSE)。打包进分发包的第三方组件及其许可证见
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+安全策略：[SECURITY.md](SECURITY.md)　变更记录：[CHANGELOG.md](CHANGELOG.md)。
 
 Apache License 2.0 — 见 [LICENSE](LICENSE)。
 
