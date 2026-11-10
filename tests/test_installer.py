@@ -223,3 +223,11 @@ def test_choose_directory_falls_back_when_com_unavailable(monkeypatch, tmp_path)
     monkeypatch.setattr(ctypes, "windll", Boom(), raising=False)
     fallback = tmp_path / "default"
     assert inst.choose_directory(fallback) == fallback
+
+
+def test_uninstall_command_passes_yes(tmp_path):
+    """从「设置 → 应用」启动时没有控制台，卸载脚本必须带 -Yes，
+    否则只打印预览就退出，用户看到的是"点了卸载没反应"。"""
+    cmd = inst.uninstall_command(tmp_path)
+    assert "-Yes" in cmd
+    assert "uninstall.ps1" in cmd

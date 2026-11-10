@@ -95,8 +95,15 @@ def create_shortcut(dest: Path, lnk: Path, exe: str = GUI_EXE) -> None:
 
 
 def uninstall_command(dest: Path) -> str:
+    """
+    「设置 → 应用」用的卸载命令。
+
+    必须带 -Yes：从设置面板启动时没有控制台，脚本若停在"预览"就什么都不做，
+    用户看到的就是"点了卸载没反应"。
+    """
     script = dest / "uninstall.ps1"
-    return f'powershell -NoProfile -ExecutionPolicy Bypass -File "{script}"'
+    return (f'powershell -NoProfile -ExecutionPolicy Bypass '
+            f'-File "{script}" -Yes')
 
 
 def register_uninstall(dest: Path, version: str) -> None:
