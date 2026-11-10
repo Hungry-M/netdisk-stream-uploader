@@ -90,20 +90,28 @@ v0.9.1 只是修 v0.9.0 的崩溃。**坏版本占了一个号，再用 "+1 patc
 ### 规则
 
 1. **不为每次提交发版。** 改动先累积在 `main`，等到一个可用的里程碑再打 tag。
-2. **打 tag 前必须三件事都过**：
-   - `python -m pytest -q` 全绿
+2. **1.0 之前的验证期不发 Release。** 用本地 `dist/` 构建或 CI artifact 迭代；
+   每发一个版本，验证者就得重新下载安装一遍，成本全转给了对方。
+3. **已发版本发现缺陷：修在同一版本上。** 重新打 tag、覆盖 Release 资产，
+   不递增 patch。递增等于把"我的返工"记成"新的交付"。
+4. **patch 版本只用于已分发、无法召回的情况。**
+5. **坏版本直接删掉**（Release + tag），修好后再打**同一个号**。
+6. 打 tag 前必须三件事都过：
+   - `python -m pytest -q` 全绿（看退出码，不是看"全过"）
    - 本地 `dist\StreamPack\streampack-gui.exe` 能双击起来
-   - CI 绿（tag 推送后确认，红就删掉重来）
-3. **坏版本不发新号。** 删掉那个 Release 和 tag，修好后再打**同一个号**。
-4. 版本号语义（1.0 之前）：
-   - `0.x.Y` patch：只修缺陷，不改行为
-   - `0.X.0` minor：新的用户可见能力，或配置/数据格式变化（可能不兼容）
-   - `major`：1.0.0 之后才用，表示不兼容变化
-5. **1.0.0 的门槛不是功能，是验证**：真机上按 [docs/release-checklist.md](docs/release-checklist.md) 走完
-   安装 → 真实网盘上传 → 两种布局 → 续传 → 卸载。功能清单（7z、多网盘）不构成门槛：
-   7z 与流式生成冲突，多网盘是扩展而非设计目标。
+   - 真机上按 [docs/release-checklist.md](docs/release-checklist.md) 走完关键路径
+7. 版本号语义（1.0 之后）：
+   - `x.y.Z` patch：只修缺陷
+   - `x.Y.0` minor：新的用户可见能力
+   - `X.0.0` major：不兼容变化
 
-   这条门槛的意义：1.0.0 表示"别人拿到就能用"，而不是"代码写完了"。
+### 教训
+
+0.6.x–0.12.0 期间一晚发了 10 个版本，其中 v0.7.0 / v0.8.0 / v0.9.0 的 GUI 一启动就崩；
+v0.9.1 只是修 v0.9.0 的崩溃。**坏版本占了一个号，再用 "+1 patch" 掩盖，是最糟的做法**——
+用户不知道该下哪个，历史里还留下一堆装不上的包。
+
+0.8.1–0.8.5 又犯了同类错误：五个版本对应五处小修，而这些问题本该在同一个版本里修完。
 
 ### 操作
 
@@ -113,8 +121,8 @@ v0.9.1 只是修 v0.9.0 的崩溃。**坏版本占了一个号，再用 "+1 patc
 powershell -ExecutionPolicy Bypass -File scripts/build_release.ps1
 
 # 3. 打 tag 并推送
-git tag -a v0.13.0 -m "v0.13.0: ..."
-git push origin v0.13.0
+git tag -a v1.0.0 -m "v1.0.0: ..."
+git push origin v1.0.0
 ```
 
 推 tag 会触发 GitHub Actions：跑测试 → 校验版本与 BOM → 构建便携包与安装器 → 生成 `SHA256SUMS.txt` → 建 Release。
@@ -122,6 +130,6 @@ git push origin v0.13.0
 **CI 红了就删掉重来**，不要为了变绿而再发一个版本：
 
 ```powershell
-git push --delete origin v0.13.0     # 删远端 tag
-git tag -d v0.13.0                   # 删本地 tag
+git push --delete origin v1.0.0     # 删远端 tag
+git tag -d v1.0.0                   # 删本地 tag
 ```
