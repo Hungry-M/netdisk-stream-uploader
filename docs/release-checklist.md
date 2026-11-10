@@ -61,9 +61,13 @@ python scripts/make_test_data.py            # 默认生成到 D:\streampack-test
 ## 六、卸载
 
 - [ ] 「设置 → 应用」卸载，或运行安装目录的 `uninstall.cmd`
+- [ ] 程序正在运行时会先被关闭（不要求用户手动退出）
 - [ ] 安装目录、快捷方式、卸载项都消失
+- [ ] **本地证书已清理**：`Cert:\CurrentUser\My` 里没有 `CN=StreamPack` / `CN=Hungry-M`，
+      `Root` / `TrustedPublisher` 里也没有
 - [ ] 用户数据默认保留；`-PurgeData` 能一并删除
 - [ ] 卸载后重装，配置和任务记录还在（默认不删数据）
+- [ ] 卸载失败时能看到原因（`%LOCALAPPDATA%\StreamPack\uninstall.log` + 弹框）
 
 ---
 

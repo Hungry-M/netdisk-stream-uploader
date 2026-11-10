@@ -15,7 +15,8 @@ param(
     [switch]$Yes,
     [switch]$PurgeData,
     [string]$InstallDir = "",
-    [switch]$Detach
+    [switch]$Detach,
+    [switch]$Quiet
 )
 
 $ErrorActionPreference = "Stop"
@@ -45,7 +46,7 @@ $hasConsole = try { -not [Console]::IsInputRedirected } catch { $true }
 
 function Show-Message {
     param([string]$Text)
-    if ($hasConsole) {
+    if ($Quiet -or $hasConsole) {
         Write-Log $Text
         return
     }
@@ -172,7 +173,20 @@ if (Test-Path $uninstallKey) {
     }
 }
 
-# 3. 用户数据（可选）
+# 3. 本机证书（先子后根）。必须在删目录之前做：trust-sign.ps1 就在目录里。
+$trustSign = Join-Path $installDir "trust-sign.ps1"
+if (Test-Path $trustSign) {
+    try {
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $trustSign -RemoveCert | Out-Null
+        Write-Log "  已清理本机信任证书"
+    } catch {
+        $failures += "清理证书失败: $($_.Exception.Message)"
+    }
+} else {
+    Write-Log "  没找到 trust-sign.ps1，跳过证书清理"
+}
+
+# 4. 用户数据（可选）
 if ($PurgeData) {
     $cleanup = Join-Path $installDir "cleanup.ps1"
     try {
@@ -193,7 +207,7 @@ if ($PurgeData) {
     Write-Log "  保留用户数据（加 -PurgeData 可一并删除）"
 }
 
-# 4. 安装目录
+# 5. 安装目录
 $cwdInside = $false
 try {
     $cwdInside = (Get-Location).Path.StartsWith($installDir, [StringComparison]::OrdinalIgnoreCase)
