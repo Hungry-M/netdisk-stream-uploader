@@ -52,8 +52,11 @@ python scripts/make_test_data.py            # 默认生成到 D:\streampack-test
 - [ ] 新建任务：选文件夹 / 选文件 / 拖放三种方式都能建任务
 - [ ] 设置对话框：改语言、主题、应用名后重启生效
 - [ ] 查找文件（Ctrl+F）能定位到卷
+- [ ] **「设置 → 应用」里是 StreamPack 图标**（不是系统默认图标；旧图标先 `ie4uinit.exe -show`）
 - [ ] 未签名时「未知发布者」提示符合文档描述
-- [ ] 签名后本机不再提示，且 `trust-sign.ps1 -RemoveCert` 能撤销
+- [ ] 点「本地信任并签名」后：程序关闭 → **几秒内自动重新打开**（失败也必须重开）
+- [ ] 重开后 `Get-AuthenticodeSignature` 为 `Valid`，且双击 exe 不再提示「未知发布者」
+- [ ] `trust-sign.ps1 -RemoveCert` 撤销后，提示恢复、根与子证书都已删除
 
 ## 六、卸载
 
