@@ -19,6 +19,7 @@ _rehearsal/
 build/
 build-*/
 dist/
+dist-*/
 
 # 开发者本地备份
 *.backup
