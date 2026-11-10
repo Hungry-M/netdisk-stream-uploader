@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 安全漏洞
+    url: https://github.com/Hungry-M/netdisk-stream-uploader/security/advisories/new
+    about: 请用私有漏洞报告，不要开公开 issue。详见 SECURITY.md
+  - name: 使用问题 / 配置答疑
+    url: https://github.com/Hungry-M/netdisk-stream-uploader/blob/main/README.zh.md
+    about: 常见问题先看 README 的「常见问题」一节
